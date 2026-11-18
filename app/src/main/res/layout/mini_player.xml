@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginBottom="4dp"
+    app:cardBackgroundColor="@color/bg_card_surface"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="6dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <ProgressBar
+            android:id="@+id/miniProgress"
+            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:progressTint="@color/accent"
+            android:progressBackgroundTint="@color/divider" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/miniThumb"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_music_note"
+                android:background="@drawable/bg_circle_accent"
+                android:scaleType="centerCrop" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
+
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="mUzVidX"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tvArtist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Sonando ahora"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnPrev"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_skip_prev"
+                android:tint="@color/text_primary"
+                android:contentDescription="Anterior" />
+
+            <ImageButton
+                android:id="@+id/btnPlay"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_circle_accent"
+                android:src="@drawable/ic_play"
+                android:tint="@color/accent"
+                android:padding="8dp"
+                android:contentDescription="Reproducir" />
+
+            <ImageButton
+                android:id="@+id/btnNext"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="4dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_skip_next"
+                android:tint="@color/text_primary"
+                android:contentDescription="Siguiente" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

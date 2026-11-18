@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#FF070B14</color>
+    <color name="bg_card">#FF111827</color>
+    <color name="bg_card_surface">#FF192236</color>
+    <color name="bg_card_pressed">#FF222E47</color>
+    
+    <!-- Aesthetic Neon Colors -->
+    <color name="accent">#FF00F2FE</color>
+    <color name="accent_cyan">#FF00F2FE</color>
+    <color name="accent_magenta">#FFFF007A</color>
+    <color name="accent_purple">#FF7B2CBF</color>
+    <color name="accent_dark">#FF0098A6</color>
+    <color name="accent_soft">#1A00F2FE</color>
+    <color name="magenta_soft">#1AFF007A</color>
+
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#FF94A3B8</color>
+    <color name="text_muted">#FF64748B</color>
+    <color name="divider">#FF1E293B</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+
+    <color name="status_success">#FF00E676</color>
+    <color name="status_error">#FFFF1744</color>
+    <color name="status_progress">#FF00F2FE</color>
+    <color name="tag_official">#FF00F2FE</color>
+    <color name="tag_community">#FFFF007A</color>
+    <color name="tag_soundcloud">#FFF97316</color>
+</resources>

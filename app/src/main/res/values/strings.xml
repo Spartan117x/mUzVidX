@@ -1,0 +1,62 @@
+<resources>
+    <string name="app_name">mUzVidX</string>
+
+    <!-- Tabs / Bottom Nav -->
+    <string name="tab_search">Buscar</string>
+    <string name="tab_downloads">Descargas</string>
+    <string name="tab_converter">Conversor</string>
+
+    <!-- Search modes -->
+    <string name="mode_library">Biblioteca</string>
+    <string name="mode_free">Libre</string>
+    <string name="search_hint_library">Buscar artista o canción (canales oficiales)</string>
+    <string name="search_hint_free">Buscar cualquier video o canal</string>
+    <string name="search_btn">Buscar</string>
+    <string name="searching">Buscando…</string>
+
+    <!-- Sources -->
+    <string name="source_youtube">YouTube</string>
+    <string name="source_soundcloud">SoundCloud</string>
+    <string name="source_official">Canal oficial</string>
+    <string name="source_community">Comunidad</string>
+
+    <!-- Download -->
+    <string name="download_audio">Audio</string>
+    <string name="download_video">Video</string>
+    <string name="downloads_empty_audio">No hay descargas de audio</string>
+    <string name="downloads_empty_video">No hay descargas de video</string>
+    <string name="audio_folder">audio</string>
+    <string name="video_folder">video</string>
+    <string name="delete_confirm">¿Eliminar este archivo?</string>
+    <string name="delete_yes">Eliminar</string>
+    <string name="delete_no">Cancelar</string>
+    <string name="convert_mp3">Convertir a MP3</string>
+    <string name="save_original">Guardar original</string>
+    <string name="delete_original">Eliminar original</string>
+    <string name="status_downloading">Descargando…</string>
+    <string name="status_converting">Convirtiendo a MP3…</string>
+    <string name="status_done">Completado</string>
+    <string name="status_error">Error</string>
+
+    <!-- Converter -->
+    <string name="converter_empty">Selecciona un audio descargado para convertirlo</string>
+    <string name="convert_btn">Convertir</string>
+    <string name="converted_to_mp3">MP3 generado</string>
+
+    <!-- Player -->
+    <string name="play">Reproducir</string>
+    <string name="pause">Pausar</string>
+    <string name="next">Siguiente</string>
+    <string name="prev">Anterior</string>
+    <string name="loop_single">Repetir</string>
+    <string name="continuous">Reproducción continua</string>
+    <string name="pip_video">Ventana PIP</string>
+    <string name="now_playing">Sonando ahora</string>
+    <string name="queue">Cola de reproducción</string>
+    <string name="add_to_queue">Agregar a cola</string>
+
+    <!-- General -->
+    <string name="cancel">Cancelar</string>
+    <string name="error_no_results">Sin resultados</string>
+    <string name="error_network">Error de red, revisa tu conexión</string>
+</resources>
