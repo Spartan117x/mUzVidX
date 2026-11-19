@@ -53,7 +53,6 @@ class PlayerActivity : AppCompatActivity() {
     private var isVisualizerActive = true
     private var isLandscape = false
     private val scope = CoroutineScope(Dispatchers.Main)
-    private var resolvedVideoForTrackId: String? = null
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -182,7 +181,6 @@ class PlayerActivity : AppCompatActivity() {
 
         PlaybackManager.onTrackChangedListener = {
             runOnUiThread {
-                resolvedVideoForTrackId = null
                 updateUiForCurrentTrack()
                 checkFavoriteStatus()
             }
@@ -216,27 +214,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setVisualMode(isVideo: Boolean) {
         PlaybackManager.isVideoMode = isVideo
-
-        if (isVideo) {
-            // Si es un tema de catálogo de canciones (Art Track con carátula fija), resolver el videoclip oficial real
-            val currentTrack = PlaybackManager.getCurrentTrack()
-            if (currentTrack != null && currentTrack.type == ResultType.TRACK && resolvedVideoForTrackId != currentTrack.id) {
-                resolvedVideoForTrackId = currentTrack.id
-                scope.launch {
-                    binding.pbLoadingTrack.visibility = View.VISIBLE
-                    Toast.makeText(this@PlayerActivity, "Cargando videoclip oficial…", Toast.LENGTH_SHORT).show()
-                    val officialVideo = withContext(Dispatchers.IO) {
-                        YouTubeService().findOfficialVideo(currentTrack.title, currentTrack.artist, currentTrack.durationSec)
-                    }
-                    binding.pbLoadingTrack.visibility = View.GONE
-                    if (officialVideo != null && PlaybackManager.isVideo) {
-                        val currentPos = PlaybackManager.getCurrentPositionMs()
-                        PlaybackManager.switchMediaStream(officialVideo.videoUrl, currentPos)
-                    }
-                }
-            }
-        }
-
         updateVisualLayout()
     }
 

@@ -36,6 +36,11 @@
 - Control de ganancia en decibelios en 5 rangos de frecuencia clave (60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz).
 - Presets optimizados: Normal, Bass Boost, Rock, Pop, Jazz, Clásica, Vocal y Custom.
 
+### 🔍 Modos de Búsqueda Deterministas y Fieles (Sin Conmutaciones Forzadas)
+- **Canciones (YouTube Music)**: Catálogo oficial de estudio (Art Tracks). Audio refinado de discográfica con su carátula original en alta resolución, ideal para una reproducción limpia tipo Spotify con etiquetas ID3 completas y visualizador espectral.
+- **Videos Oficiales (Videoclips)**: Búsqueda orientada a videoclips cinematográficos oficiales, sesiones acústicas y conciertos para que el usuario elija con sus propios ojos exactamente la versión que desea.
+- **Modo Libre**: Búsqueda abierta en todo YouTube sin restricciones. Lo que seleccionas en la lista es exactamente lo que se reproduce y descarga, con fidelidad 1:1 y sin sustituciones automáticas.
+
 ### 📥 Descargas y Extracción Multimedia
 - **Múltiples Resoluciones de Video**: Selector de resolución (1080p, 720p, 480p, 360p) con detección inteligente de streams progresivos y muxed para garantizar descargas sin fallos.
 - **Extractor SoundCloud & YouTube Innertube**: Búsqueda limpia y sin anuncios con navegación por artistas, álbumes y canciones.

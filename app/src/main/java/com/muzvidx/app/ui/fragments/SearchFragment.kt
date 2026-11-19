@@ -196,34 +196,23 @@ class SearchFragment : Fragment() {
         val ctx = context ?: return
         val appCtx = ctx.applicationContext
 
-        lifecycleScope.launch {
-            // Si es Art Track de audio, obtener el video musical oficial
-            val targetResult = if (result.type == ResultType.TRACK) {
-                withContext(Dispatchers.IO) {
-                    ytService.findOfficialVideo(result.title, result.artist, result.durationSec)
-                } ?: result
-            } else {
-                result
+        val resolutions = arrayOf(
+            "1080p • Full HD (Máxima calidad)",
+            "720p • Alta definición (Recomendado)",
+            "480p • Definición estándar",
+            "360p • Ahorro de espacio (Rápido)"
+        )
+        val resTags = arrayOf("1080p", "720p", "480p", "360p")
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+            .setTitle("Calidad de Descarga del Video")
+            .setItems(resolutions) { _, which ->
+                val chosenRes = resTags[which]
+                Toast.makeText(appCtx, "Descargando video en $chosenRes...", Toast.LENGTH_SHORT).show()
+                DownloadQueueManager.enqueueVideoDownload(appCtx, result, targetResolution = chosenRes)
             }
-
-            val resolutions = arrayOf(
-                "1080p • Full HD (Máxima calidad)",
-                "720p • Alta definición (Recomendado)",
-                "480p • Definición estándar",
-                "360p • Ahorro de espacio (Rápido)"
-            )
-            val resTags = arrayOf("1080p", "720p", "480p", "360p")
-
-            com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
-                .setTitle("Calidad de Descarga del Video")
-                .setItems(resolutions) { _, which ->
-                    val chosenRes = resTags[which]
-                    Toast.makeText(appCtx, "Descargando video en $chosenRes...", Toast.LENGTH_SHORT).show()
-                    DownloadQueueManager.enqueueVideoDownload(appCtx, targetResult, targetResolution = chosenRes)
-                }
-                .setNegativeButton("Cancelar", null)
-                .show()
-        }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     override fun onDestroyView() {
