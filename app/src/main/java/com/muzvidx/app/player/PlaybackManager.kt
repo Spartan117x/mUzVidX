@@ -28,12 +28,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.widget.Toast
 import java.io.File
 
 object PlaybackManager {
     private const val TAG = "PlaybackManager"
     private const val USER_AGENT_ANDROID =
         "com.google.android.youtube/21.03.36(Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip"
+    private const val USER_AGENT_IOS =
+        "com.google.ios.youtube/20.11.6 (iPhone10,4; U; CPU iOS 16_7_7 like Mac OS X)"
+
+    fun getHttpDataSourceFactory(url: String): DefaultHttpDataSource.Factory {
+        val ua = if (url.contains("c=IOS") || url.contains("c%3DIOS")) USER_AGENT_IOS else USER_AGENT_ANDROID
+        return DefaultHttpDataSource.Factory()
+            .setUserAgent(ua)
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(30000)
+            .setAllowCrossProtocolRedirects(true)
+    }
 
     var player: ExoPlayer? = null
     var queue: MutableList<SearchResult> = mutableListOf()
@@ -139,12 +151,36 @@ object PlaybackManager {
                         isLoadingTrack = false
                         onLoadingStateListener?.invoke(false)
                         Log.e(TAG, "Error en ExoPlayer: ${error.errorCodeName} - ${error.message}", error)
-                        // Auto-recuperación: si falla el stream y hay cola continua, pasar al siguiente tema sin congelarse
-                        if (isContinuous && queue.size > 1) {
+
+                        // 1. Si falló un formato adaptativo (MergingMediaSource / 720p / 1080p), reintentar automáticamente
+                        // con el stream progresivo oficial garantizado (itag 18 / 360p) para ESTE MISMO video (sin saltar al siguiente)
+                        val progFormat = currentVideoStreamsBundle?.formats?.find { it.isProgressive }
+                        if (isVideo && progFormat != null && currentVideoResolution != "360p") {
+                            Log.w(TAG, "Resolución $currentVideoResolution falló. Reintentando con stream progresivo garantizado (360p) para el mismo video...")
+                            currentVideoResolution = "360p"
+                            onResolutionChangedListener?.invoke("360p")
                             scope.launch {
-                                kotlinx.coroutines.delay(1200)
-                                playNext()
+                                try {
+                                    val httpFactory = getHttpDataSourceFactory(progFormat.videoUrl)
+                                    val source = ProgressiveMediaSource.Factory(httpFactory)
+                                        .createMediaSource(MediaItem.fromUri(Uri.parse(progFormat.videoUrl)))
+                                    player?.setMediaSource(source, 0L)
+                                    player?.prepare()
+                                    player?.play()
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Fallback progresivo falló", e)
+                                    appContext?.let {
+                                        Toast.makeText(it, "Error al reproducir video", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }
+                            return
+                        }
+
+                        // 2. Si no es posible recuperar, NO entrar en bucle infinito saltando temas.
+                        // Mantener la pista actual y avisar al usuario.
+                        appContext?.let {
+                            Toast.makeText(it, "No se pudo reproducir este contenido", Toast.LENGTH_SHORT).show()
                         }
                     }
 
@@ -248,15 +284,7 @@ object PlaybackManager {
     fun getCurrentTrack(): SearchResult? =
         if (queue.isEmpty()) null else queue.getOrNull(currentIndex)
 
-    fun cleanVideoId(rawUrl: String): String {
-        return if (rawUrl.contains("v=")) {
-            rawUrl.substringAfter("v=").substringBefore("&")
-        } else if (rawUrl.contains("youtu.be/")) {
-            rawUrl.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
-        } else {
-            rawUrl.removePrefix("yt_").removePrefix("yt_vid_")
-        }
-    }
+    fun cleanVideoId(rawUrl: String): String = YouTubeService.cleanVideoId(rawUrl)
 
     /**
      * Cambia el stream de reproducción en caliente manteniendo la posición actual (útil al cambiar de Audio a Video)
@@ -287,7 +315,10 @@ object PlaybackManager {
             if (!streamUrl.isNullOrEmpty()) {
                 val uri = if (streamUrl.startsWith("/")) Uri.fromFile(File(streamUrl)) else Uri.parse(streamUrl)
                 try {
-                    player?.setMediaItem(MediaItem.fromUri(uri), startPosMs)
+                    val httpFactory = getHttpDataSourceFactory(streamUrl)
+                    val source = ProgressiveMediaSource.Factory(httpFactory)
+                        .createMediaSource(MediaItem.fromUri(uri))
+                    player?.setMediaSource(source, startPosMs)
                     player?.prepare()
                     player?.play()
                 } catch (e: Exception) {
@@ -341,15 +372,11 @@ object PlaybackManager {
 
     private fun applyVideoStreamsToPlayer(bundle: VideoStreamsBundle, quality: String, startPosMs: Long) {
         val p = player ?: return
-        val httpSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent(USER_AGENT_ANDROID)
-            .setConnectTimeoutMs(10000)
-            .setReadTimeoutMs(20000)
-            .setAllowCrossProtocolRedirects(true)
 
         try {
             // Caso 1: Manifiesto HLS disponible
             if (!bundle.hlsManifestUrl.isNullOrEmpty()) {
+                val httpSourceFactory = getHttpDataSourceFactory(bundle.hlsManifestUrl)
                 if (quality == "Auto") {
                     p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                         .clearVideoSizeConstraints()
@@ -369,30 +396,38 @@ object PlaybackManager {
                         .build()
                 }
                 Log.i(TAG, "Aplicando HLS en ExoPlayer (calidad=$quality): ${bundle.hlsManifestUrl}")
-                p.setMediaItem(MediaItem.fromUri(Uri.parse(bundle.hlsManifestUrl)), startPosMs)
+                val mediaSource = ProgressiveMediaSource.Factory(httpSourceFactory)
+                    .createMediaSource(MediaItem.fromUri(Uri.parse(bundle.hlsManifestUrl)))
+                p.setMediaSource(mediaSource, startPosMs)
                 p.prepare()
                 p.play()
                 return
             }
 
             // Caso 2: Formatos directos HTTP (1080p, 720p, 480p, 360p)
+            val progressiveFormat = bundle.formats.find { it.isProgressive }
             val selectedFormat = if (quality == "Auto") {
-                bundle.formats.find { it.qualityLabel == "720p" } ?: bundle.formats.firstOrNull()
+                // En modo Auto, priorizar el stream progresivo (itag 18 / 360p) que garantiza reproducción inmediata, fluida y sin bloqueos 403
+                progressiveFormat ?: bundle.formats.find { it.qualityLabel == "720p" } ?: bundle.formats.firstOrNull()
             } else {
-                bundle.formats.find { it.qualityLabel == quality } ?: bundle.formats.firstOrNull()
+                bundle.formats.find { it.qualityLabel == quality } ?: progressiveFormat ?: bundle.formats.firstOrNull()
             }
 
             if (selectedFormat != null) {
+                val httpSourceFactory = getHttpDataSourceFactory(selectedFormat.videoUrl)
                 if (selectedFormat.isProgressive || selectedFormat.audioUrl.isNullOrEmpty()) {
-                    Log.i(TAG, "Cargando video progresivo directo ($quality): ${selectedFormat.videoUrl}")
-                    p.setMediaItem(MediaItem.fromUri(Uri.parse(selectedFormat.videoUrl)), startPosMs)
+                    Log.i(TAG, "Cargando video progresivo directo (${selectedFormat.qualityLabel}): ${selectedFormat.videoUrl}")
+                    val mediaSource = ProgressiveMediaSource.Factory(httpSourceFactory)
+                        .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.videoUrl)))
+                    p.setMediaSource(mediaSource, startPosMs)
                     p.prepare()
                     p.play()
                 } else {
-                    Log.i(TAG, "Cargando MergingMediaSource video ($quality) + audio AAC")
+                    Log.i(TAG, "Cargando MergingMediaSource video (${selectedFormat.qualityLabel}) + audio AAC")
+                    val audioHttpSourceFactory = getHttpDataSourceFactory(selectedFormat.audioUrl)
                     val videoSource = ProgressiveMediaSource.Factory(httpSourceFactory)
                         .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.videoUrl)))
-                    val audioSource = ProgressiveMediaSource.Factory(httpSourceFactory)
+                    val audioSource = ProgressiveMediaSource.Factory(audioHttpSourceFactory)
                         .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.audioUrl)))
                     val merged = MergingMediaSource(videoSource, audioSource)
 
@@ -402,7 +437,10 @@ object PlaybackManager {
                 }
             } else {
                 Log.i(TAG, "Cargando default stream: ${bundle.defaultStreamUrl}")
-                p.setMediaItem(MediaItem.fromUri(Uri.parse(bundle.defaultStreamUrl)), startPosMs)
+                val httpSourceFactory = getHttpDataSourceFactory(bundle.defaultStreamUrl)
+                val mediaSource = ProgressiveMediaSource.Factory(httpSourceFactory)
+                    .createMediaSource(MediaItem.fromUri(Uri.parse(bundle.defaultStreamUrl)))
+                p.setMediaSource(mediaSource, startPosMs)
                 p.prepare()
                 p.play()
             }
@@ -478,7 +516,10 @@ object PlaybackManager {
 
                 if (!streamUrl.isNullOrEmpty()) {
                     try {
-                        player?.setMediaItem(MediaItem.fromUri(Uri.parse(streamUrl)))
+                        val httpFactory = getHttpDataSourceFactory(streamUrl)
+                        val source = ProgressiveMediaSource.Factory(httpFactory)
+                            .createMediaSource(MediaItem.fromUri(Uri.parse(streamUrl)))
+                        player?.setMediaSource(source)
                         player?.prepare()
                         player?.play()
                     } catch (e: Exception) {
@@ -486,9 +527,8 @@ object PlaybackManager {
                     }
                 } else {
                     Log.e(TAG, "No se pudo obtener stream para: ${track.title}")
-                    if (isContinuous && queue.size > 1) {
-                        kotlinx.coroutines.delay(1000)
-                        playNext()
+                    appContext?.let {
+                        Toast.makeText(it, "No se pudo cargar este video", Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
