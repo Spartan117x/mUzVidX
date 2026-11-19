@@ -171,7 +171,7 @@ class YouTubeService {
                             ?.getAsJsonArray("runs")
                         val title = runsToText(titleRuns)
 
-                        var artist = if (isVideoFilter) "Video Oficial" else "Oficial"
+                        var artist = ""
                         var durationSec = 0L
 
                         if (cols.size() > 1) {
@@ -190,14 +190,84 @@ class YouTubeService {
                                     }
                                     val lower = t.lowercase()
                                     if (lower == "canción" || lower == "song" || lower == "video" ||
-                                        lower == "pista" || lower == "track" || lower == "álbum" || lower == "album") {
+                                        lower == "pista" || lower == "track" || lower == "álbum" || lower == "album" ||
+                                        lower.contains("visualizaciones") || lower.contains("views") ||
+                                        lower.contains("reproducciones")) {
                                         continue
                                     }
-                                    if (artist == "Oficial" || artist == "Video Oficial" || artist.isEmpty()) {
+                                    if (artist.isEmpty()) {
                                         artist = t
                                     }
                                 }
                             }
+                        }
+
+                        // Determinar con precisión si es un videoclip oficial de canal verificado
+                        val isItemOfficial = if (!isVideoFilter) {
+                            true // Catálogo de canciones de YouTube Music son Art Tracks oficiales de estudio
+                        } else {
+                            var mvt = ""
+                            try {
+                                if (titleRuns != null) {
+                                    for (r in titleRuns) {
+                                        val type = r.asJsonObject.getAsJsonObject("navigationEndpoint")
+                                            ?.getAsJsonObject("watchEndpoint")
+                                            ?.getAsJsonObject("watchEndpointMusicSupportedConfigs")
+                                            ?.getAsJsonObject("watchEndpointMusicConfig")
+                                            ?.get("musicVideoType")?.asString ?: ""
+                                        if (type.isNotEmpty()) {
+                                            mvt = type
+                                            break
+                                        }
+                                    }
+                                }
+                            } catch (_: Exception) {}
+
+                            if (mvt.isEmpty()) {
+                                try {
+                                    mvt = item.getAsJsonObject("overlay")
+                                        ?.getAsJsonObject("musicItemThumbnailOverlayRenderer")
+                                        ?.getAsJsonObject("content")
+                                        ?.getAsJsonObject("musicPlayButtonRenderer")
+                                        ?.getAsJsonObject("playNavigationEndpoint")
+                                        ?.getAsJsonObject("watchEndpoint")
+                                        ?.getAsJsonObject("watchEndpointMusicSupportedConfigs")
+                                        ?.getAsJsonObject("watchEndpointMusicConfig")
+                                        ?.get("musicVideoType")?.asString ?: ""
+                                } catch (_: Exception) {}
+                            }
+
+                            var pageType = ""
+                            if (cols.size() > 1) {
+                                val infoRuns = cols.get(1).asJsonObject
+                                    .getAsJsonObject("musicResponsiveListItemFlexColumnRenderer")
+                                    ?.getAsJsonObject("text")
+                                    ?.getAsJsonArray("runs")
+                                if (infoRuns != null) {
+                                    for (r in infoRuns) {
+                                        val pt = r.asJsonObject
+                                            .getAsJsonObject("navigationEndpoint")
+                                            ?.getAsJsonObject("browseEndpoint")
+                                            ?.getAsJsonObject("browseEndpointContextSupportedConfigs")
+                                            ?.getAsJsonObject("browseEndpointContextMusicConfig")
+                                            ?.get("pageType")?.asString ?: ""
+                                        if (pt.isNotEmpty()) {
+                                            pageType = pt
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+
+                            val isOmv = mvt.contains("OMV", ignoreCase = true) || mvt.contains("OFFICIAL", ignoreCase = true)
+                            val isArtist = pageType.contains("ARTIST", ignoreCase = true)
+                            val isUgc = mvt.contains("UGC", ignoreCase = true) || pageType.contains("USER_CHANNEL", ignoreCase = true)
+
+                            (isOmv || isArtist) && !isUgc
+                        }
+
+                        if (artist.isEmpty()) {
+                            artist = if (isItemOfficial) "Canal Oficial" else "YouTube"
                         }
 
                         var videoId = item.getAsJsonObject("playlistItemData")
@@ -233,9 +303,9 @@ class YouTubeService {
                                     thumbUrl = thumb,
                                     audioUrl = "https://www.youtube.com/watch?v=$videoId",
                                     videoUrl = "https://www.youtube.com/watch?v=$videoId",
-                                    isOfficial = true,
+                                    isOfficial = isItemOfficial,
                                     officialChannel = artist,
-                                    isCommunity = false
+                                    isCommunity = !isItemOfficial
                                 )
                             )
                         }
@@ -344,6 +414,23 @@ class YouTubeService {
                         videoId
                     )
 
+                    var isVerified = false
+                    val badges = vr.getAsJsonArray("ownerBadges")
+                    if (badges != null) {
+                        for (b in badges) {
+                            val mb = b.asJsonObject.getAsJsonObject("metadataBadgeRenderer") ?: continue
+                            val style = mb.get("style")?.asString ?: ""
+                            val iconType = mb.getAsJsonObject("icon")?.get("iconType")?.asString ?: ""
+                            if (style.contains("VERIFIED", ignoreCase = true) ||
+                                iconType.contains("OFFICIAL", ignoreCase = true) ||
+                                iconType.contains("VERIFIED", ignoreCase = true)
+                            ) {
+                                isVerified = true
+                                break
+                            }
+                        }
+                    }
+
                     results.add(
                         SearchResult(
                             id = "yt_$videoId",
@@ -355,9 +442,9 @@ class YouTubeService {
                             thumbUrl = thumb,
                             audioUrl = "https://www.youtube.com/watch?v=$videoId",
                             videoUrl = "https://www.youtube.com/watch?v=$videoId",
-                            isOfficial = false,
+                            isOfficial = isVerified,
                             officialChannel = channel,
-                            isCommunity = true
+                            isCommunity = !isVerified
                         )
                     )
 

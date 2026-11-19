@@ -60,7 +60,7 @@ object PlaybackManager {
     val streamCache = LruCache<String, String>(60)
 
     val isPlaying: Boolean get() = player?.isPlaying == true
-    val isVideo: Boolean get() = isVideoMode || (getCurrentTrack()?.type == ResultType.VIDEO)
+    val isVideo: Boolean get() = isVideoMode
 
     var onTrackChangedListener: ((SearchResult?) -> Unit)? = null
     var onLoadingStateListener: ((Boolean) -> Unit)? = null

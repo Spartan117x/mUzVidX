@@ -39,7 +39,7 @@ class SearchResultsAdapter(
         val (tagText, tagColorRes) = when {
             item.type == ResultType.TRACK -> Pair("Canción", R.color.tag_official)
             item.isOfficial -> Pair("Video Oficial", R.color.accent)
-            else -> Pair("YouTube", R.color.tag_community)
+            else -> Pair("Video", R.color.text_secondary)
         }
         holder.binding.tvSource.text = tagText
         holder.binding.tvSource.setTextColor(holder.itemView.context.getColor(tagColorRes))
