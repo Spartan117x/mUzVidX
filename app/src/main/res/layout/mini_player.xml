@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/miniPlayerCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="8dp"
     android:layout_marginBottom="4dp"
-    android:focusable="true"
-    android:clickable="true"
-    android:foreground="@drawable/selector_card_focus"
+    android:focusable="false"
+    android:clickable="false"
+    android:descendantFocusability="afterDescendants"
     app:cardBackgroundColor="@color/bg_card_surface"
     app:cardCornerRadius="14dp"
     app:cardElevation="6dp">
@@ -29,46 +30,65 @@
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:orientation="horizontal"
-            android:paddingHorizontal="12dp"
+            android:paddingHorizontal="10dp"
             android:gravity="center_vertical">
 
-            <ImageView
-                android:id="@+id/miniThumb"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@drawable/ic_music_note"
-                android:background="@drawable/bg_circle_accent"
-                android:scaleType="centerCrop" />
-
+            <!-- Sección de Información (Clic para abrir reproductor completo) -->
             <LinearLayout
+                android:id="@+id/layoutMiniInfo"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="12dp">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="4dp"
+                android:background="?selectableItemBackground"
+                android:focusable="true"
+                android:clickable="true"
+                android:contentDescription="Abrir reproductor a pantalla completa"
+                android:nextFocusRight="@+id/btnPrev"
+                android:nextFocusDown="@+id/bottomNav">
 
-                <TextView
-                    android:id="@+id/tvTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="mUzVidX"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
+                <ImageView
+                    android:id="@+id/miniThumb"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_music_note"
+                    android:background="@drawable/bg_circle_accent"
+                    android:scaleType="centerCrop" />
 
-                <TextView
-                    android:id="@+id/tvArtist"
-                    android:layout_width="match_parent"
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Sonando ahora"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="6dp">
+
+                    <TextView
+                        android:id="@+id/tvTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="mUzVidX"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <TextView
+                        android:id="@+id/tvArtist"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Sonando ahora"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
             </LinearLayout>
 
+            <!-- Botón Anterior -->
             <ImageButton
                 android:id="@+id/btnPrev"
                 android:layout_width="38dp"
@@ -76,8 +96,14 @@
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_skip_prev"
                 android:tint="@color/text_primary"
-                android:contentDescription="Anterior" />
+                android:contentDescription="Anterior"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusLeft="@+id/layoutMiniInfo"
+                android:nextFocusRight="@+id/btnPlay"
+                android:nextFocusDown="@+id/bottomNav" />
 
+            <!-- Botón Reproducir / Pausar -->
             <ImageButton
                 android:id="@+id/btnPlay"
                 android:layout_width="44dp"
@@ -87,8 +113,14 @@
                 android:src="@drawable/ic_play"
                 android:tint="@color/accent"
                 android:padding="8dp"
-                android:contentDescription="Reproducir" />
+                android:contentDescription="Reproducir o pausar"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusLeft="@+id/btnPrev"
+                android:nextFocusRight="@+id/btnNext"
+                android:nextFocusDown="@+id/bottomNav" />
 
+            <!-- Botón Siguiente -->
             <ImageButton
                 android:id="@+id/btnNext"
                 android:layout_width="38dp"
@@ -97,7 +129,29 @@
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_skip_next"
                 android:tint="@color/text_primary"
-                android:contentDescription="Siguiente" />
+                android:contentDescription="Siguiente"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusLeft="@+id/btnPlay"
+                android:nextFocusRight="@+id/btnCloseMini"
+                android:nextFocusDown="@+id/bottomNav" />
+
+            <!-- Botón Cerrar / Detener Reproducción -->
+            <ImageButton
+                android:id="@+id/btnCloseMini"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="4dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_close"
+                android:tint="@color/text_secondary"
+                android:padding="8dp"
+                android:contentDescription="Cerrar y detener reproducción"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusLeft="@+id/btnNext"
+                android:nextFocusDown="@+id/bottomNav" />
+
         </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>

@@ -110,6 +110,18 @@ class PlayerActivity : AppCompatActivity() {
             updateUiForCurrentTrack()
         }
 
+        binding.btnRewind.setOnClickListener {
+            val pos = Math.max(0, PlaybackManager.getCurrentPositionMs() - 10000)
+            PlaybackManager.seekTo(pos)
+            scheduleControlsAutoHide()
+        }
+
+        binding.btnForward.setOnClickListener {
+            val pos = PlaybackManager.getCurrentPositionMs() + 10000
+            PlaybackManager.seekTo(pos)
+            scheduleControlsAutoHide()
+        }
+
         binding.btnNext.setOnClickListener {
             PlaybackManager.playNext()
             updateUiForCurrentTrack()
@@ -214,12 +226,12 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupTvFocusStyles() {
         val focusViews = listOf(
-            binding.btnPlay, binding.btnPrev, binding.btnNext,
+            binding.btnPlay, binding.btnRewind, binding.btnForward,
+            binding.btnPrev, binding.btnNext,
             binding.btnMinimize, binding.btnEqualizer, binding.btnQuality,
             binding.btnVisualizer, binding.btnRotate, binding.btnPip, binding.btnClose,
             binding.btnModeAudio, binding.btnModeVideo, binding.btnFavorite,
-            binding.btnAddToPlaylist, binding.btnRepeat, binding.switchContinuous,
-            binding.seekBar
+            binding.btnAddToPlaylist, binding.btnRepeat, binding.switchContinuous
         )
         for (v in focusViews) {
             v.setOnFocusChangeListener { view, hasFocus ->
@@ -579,7 +591,7 @@ class PlayerActivity : AppCompatActivity() {
                 binding.bottomControls.visibility = View.GONE
             }
         }
-        handler.postDelayed(autoHideRunnable!!, 3500)
+        handler.postDelayed(autoHideRunnable!!, 8000)
     }
 
     private fun updateRepeatButtonUi(mode: Int) {
@@ -866,6 +878,11 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+            // Reiniciar el temporizador de auto-ocultación con cada pulsación del control
+            if (isControlsVisible && PlaybackManager.isVideo) {
+                scheduleControlsAutoHide()
+            }
+
             when (event.keyCode) {
                 android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
                 android.view.KeyEvent.KEYCODE_HEADSETHOOK -> {
@@ -926,11 +943,29 @@ class PlayerActivity : AppCompatActivity() {
                         return true
                     }
                 }
-                android.view.KeyEvent.KEYCODE_DPAD_UP,
+                android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (!isControlsVisible) {
+                        toggleControlsVisibility()
+                        return true
+                    }
+                }
                 android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
                     if (!isControlsVisible) {
                         toggleControlsVisibility()
                         return true
+                    } else {
+                        // Si los controles están visibles y el foco está en la fila de reproducción, flecha ABAJO los oculta
+                        val bottomFocusIds = listOf(
+                            binding.btnPlay.id,
+                            binding.btnRewind.id,
+                            binding.btnForward.id,
+                            binding.btnPrev.id,
+                            binding.btnNext.id
+                        )
+                        if (currentFocus?.id in bottomFocusIds) {
+                            toggleControlsVisibility()
+                            return true
+                        }
                     }
                 }
                 android.view.KeyEvent.KEYCODE_BACK -> {

@@ -248,6 +248,17 @@ object PlaybackManager {
         }
     }
 
+    fun stop() {
+        loadJob?.cancel()
+        player?.stop()
+        player?.clearMediaItems()
+        queue.clear()
+        currentIndex = 0
+        appContext?.let { ctx ->
+            MusicPlaybackService.stop(ctx)
+        }
+    }
+
     fun release() {
         loadJob?.cancel()
         AudioEqualizerManager.release()

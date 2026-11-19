@@ -101,10 +101,8 @@ class SearchFragment : Fragment() {
 
         binding.swipeRefresh.setColorSchemeResources(R.color.accent)
         binding.swipeRefresh.setProgressBackgroundColorSchemeResource(R.color.bg_card)
-        binding.swipeRefresh.setOnRefreshListener {
-            val query = binding.etSearch.text.toString().trim()
-            if (query.isNotEmpty()) doSearch(query) else binding.swipeRefresh.isRefreshing = false
-        }
+        // En Smart TV se desactiva el pull-to-refresh táctil para evitar recargas accidentales al subir con el D-pad
+        binding.swipeRefresh.isEnabled = false
 
         // Configuración de foco y resaltado visual para Smart TV / Control Remoto
         setupTvFocusStyles()
@@ -226,8 +224,8 @@ class SearchFragment : Fragment() {
 
     private fun doSearch(query: String) {
         val b = _binding ?: return
+        if (isSearching) return
         isSearching = true
-        b.swipeRefresh.isRefreshing = true
         b.btnSearch.isEnabled = false
         b.btnSearch.alpha = 0.6f
         b.tvStatus.visibility = View.VISIBLE
@@ -264,7 +262,6 @@ class SearchFragment : Fragment() {
                 _binding?.let { bindingRef ->
                     bindingRef.btnSearch.isEnabled = true
                     bindingRef.btnSearch.alpha = 1f
-                    bindingRef.swipeRefresh.isRefreshing = false
                     bindingRef.tvStatus.visibility = View.GONE
                 }
             }

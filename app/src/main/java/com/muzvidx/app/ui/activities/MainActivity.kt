@@ -71,16 +71,18 @@ class MainActivity : AppCompatActivity() {
         applyTouchFeedback(binding.miniPlayer.btnPlay)
         applyTouchFeedback(binding.miniPlayer.btnNext)
         applyTouchFeedback(binding.miniPlayer.btnPrev)
+        applyTouchFeedback(binding.miniPlayer.btnCloseMini)
 
         listOf(
+            binding.miniPlayer.layoutMiniInfo,
             binding.miniPlayer.btnPlay,
             binding.miniPlayer.btnPrev,
             binding.miniPlayer.btnNext,
-            binding.miniPlayer.root
+            binding.miniPlayer.btnCloseMini
         ).forEach { v ->
             v.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    val s = if (view == binding.miniPlayer.root) 1.02f else 1.15f
+                    val s = if (view == binding.miniPlayer.layoutMiniInfo) 1.02f else 1.15f
                     view.animate().scaleX(s).scaleY(s).setDuration(120).start()
                 } else {
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
@@ -104,7 +106,11 @@ class MainActivity : AppCompatActivity() {
             PlaybackManager.playPrev()
             updateMiniPlayer()
         }
-        binding.miniPlayer.root.setOnClickListener {
+        binding.miniPlayer.btnCloseMini.setOnClickListener {
+            PlaybackManager.stop()
+            updateMiniPlayer()
+        }
+        binding.miniPlayer.layoutMiniInfo.setOnClickListener {
             openPlayer(this)
         }
 
@@ -143,31 +149,53 @@ class MainActivity : AppCompatActivity() {
             .commit()
     }
 
+    private var lastMiniTrackId: String? = null
+    private var lastIsPlaying: Boolean? = null
+
     private fun updateMiniPlayer() {
         val queue = PlaybackManager.queue
-        if (queue.isEmpty()) {
-            binding.miniPlayer.root.visibility = View.GONE
+        if (queue.isEmpty() || PlaybackManager.player == null) {
+            if (binding.miniPlayer.root.visibility != View.GONE) {
+                binding.miniPlayer.root.visibility = View.GONE
+                binding.bottomNav.nextFocusUpId = View.NO_ID
+            }
+            lastMiniTrackId = null
+            lastIsPlaying = null
             return
         }
-        binding.miniPlayer.root.visibility = View.VISIBLE
-        val track = queue.getOrNull(PlaybackManager.currentIndex) ?: return
-        binding.miniPlayer.tvTitle.text = track.title
-        binding.miniPlayer.tvArtist.text = track.artist
 
-        if (track.thumbUrl.isNotEmpty()) {
-            Glide.with(this)
-                .load(track.thumbUrl)
-                .circleCrop()
-                .placeholder(R.drawable.ic_music_note)
-                .into(binding.miniPlayer.miniThumb)
-        } else {
-            binding.miniPlayer.miniThumb.setImageResource(R.drawable.ic_music_note)
+        if (binding.miniPlayer.root.visibility != View.VISIBLE) {
+            binding.miniPlayer.root.visibility = View.VISIBLE
+            // Cuando el mini reproductor está activo, presionar ARRIBA desde la barra inferior va a Play
+            binding.bottomNav.nextFocusUpId = R.id.btnPlay
+        }
+
+        val track = queue.getOrNull(PlaybackManager.currentIndex) ?: return
+
+        // Solo recargar carátula e información si la canción cambió
+        if (lastMiniTrackId != track.id) {
+            lastMiniTrackId = track.id
+            binding.miniPlayer.tvTitle.text = track.title
+            binding.miniPlayer.tvArtist.text = track.artist
+
+            if (track.thumbUrl.isNotEmpty()) {
+                Glide.with(this)
+                    .load(track.thumbUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_music_note)
+                    .into(binding.miniPlayer.miniThumb)
+            } else {
+                binding.miniPlayer.miniThumb.setImageResource(R.drawable.ic_music_note)
+            }
         }
 
         val isPlaying = PlaybackManager.isPlaying
-        binding.miniPlayer.btnPlay.setImageResource(
-            if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-        )
+        if (lastIsPlaying != isPlaying) {
+            lastIsPlaying = isPlaying
+            binding.miniPlayer.btnPlay.setImageResource(
+                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+            )
+        }
 
         val pos = PlaybackManager.getCurrentPositionMs().toInt()
         val dur = PlaybackManager.getDurationMs().toInt()
@@ -254,5 +282,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         miniPollJob?.cancel()
+        if (isFinishing) {
+            PlaybackManager.stop()
+        }
     }
 }
