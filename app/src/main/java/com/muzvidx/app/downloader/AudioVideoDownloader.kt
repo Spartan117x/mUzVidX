@@ -40,6 +40,22 @@ object AudioVideoDownloader {
     fun getAudioDir(context: Context): File = getBaseDir(context, DownloadType.AUDIO)
     fun getVideoDir(context: Context): File = getBaseDir(context, DownloadType.VIDEO)
 
+    private fun createSafeFileName(title: String, artist: String): String {
+        val cleanArtist = artist.trim().replace(Regex("(?i)\\s*-\\s*topic|vevo"), "").trim()
+        val combined = if (cleanArtist.isNotEmpty() && !cleanArtist.equals("Oficial", true) &&
+            !cleanArtist.equals("Video Oficial", true) && !title.startsWith(cleanArtist, ignoreCase = true)
+        ) {
+            "$cleanArtist - $title"
+        } else {
+            title
+        }
+        return combined.replace(Regex("[\\\\/:*?\"<>|]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .take(120)
+            .ifEmpty { "track" }
+    }
+
     /**
      * Descarga estándar (empleada principalmente para Audio M4A/AAC)
      */
@@ -48,15 +64,16 @@ object AudioVideoDownloader {
         rawUrlOrId: String,
         title: String,
         type: DownloadType,
+        artist: String = "",
         onProgress: (Int) -> Unit
     ): DownloadRecord = withContext(Dispatchers.IO) {
-        Log.i(TAG, "Iniciando descarga: $title ($type), url/id: $rawUrlOrId")
+        val cleanArtist = artist.trim().replace(Regex("(?i)\\s*-\\s*topic|vevo"), "").trim()
+        Log.i(TAG, "Iniciando descarga: $title - $cleanArtist ($type), url/id: $rawUrlOrId")
         val id = UUID.randomUUID().toString()
         val baseDir = getBaseDir(context, type)
         val ext = if (type == DownloadType.AUDIO) "m4a" else "mp4"
-        val safeTitle = title.replace(Regex("[^a-zA-Z0-9ñÑáéíóúÁÉÍÓÚü_ ]"), "").trim()
-            .take(45).ifEmpty { "track" }
-        val originalFile = File(baseDir, "${safeTitle}_${id.take(6)}.$ext")
+        val safeBase = createSafeFileName(title, cleanArtist)
+        val originalFile = File(baseDir, "${safeBase}_${id.take(6)}.$ext")
 
         var status = DownloadStatus.DOWNLOADING
         var progress = 0
@@ -73,7 +90,7 @@ object AudioVideoDownloader {
             return@withContext DownloadRecord(
                 id = id,
                 title = title,
-                artist = "",
+                artist = cleanArtist,
                 type = type,
                 sourceUrl = rawUrlOrId,
                 originalPath = "",
@@ -109,7 +126,7 @@ object AudioVideoDownloader {
         DownloadRecord(
             id = id,
             title = title,
-            artist = "",
+            artist = cleanArtist,
             type = type,
             sourceUrl = rawUrlOrId,
             originalPath = if (status == DownloadStatus.READY) originalFile.absolutePath else "",
@@ -128,22 +145,23 @@ object AudioVideoDownloader {
         context: Context,
         rawUrlOrId: String,
         title: String,
+        artist: String = "",
         targetResolution: String = "720p",
         onProgress: (Int) -> Unit
     ): DownloadRecord = withContext(Dispatchers.IO) {
+        val cleanArtist = artist.trim().replace(Regex("(?i)\\s*-\\s*topic|vevo"), "").trim()
         val id = UUID.randomUUID().toString()
         val baseDir = getVideoDir(context)
-        val safeTitle = title.replace(Regex("[^a-zA-Z0-9ñÑáéíóúÁÉÍÓÚü_ ]"), "").trim()
-            .take(40).ifEmpty { "video" }
-        val finalFile = File(baseDir, "${safeTitle}_${targetResolution}_${id.take(6)}.mp4")
+        val safeBase = createSafeFileName(title, cleanArtist)
+        val finalFile = File(baseDir, "${safeBase}_${targetResolution}_${id.take(6)}.mp4")
 
-        Log.i(TAG, "Iniciando descarga de video ($targetResolution): $title")
+        Log.i(TAG, "Iniciando descarga de video ($targetResolution): $title - $cleanArtist")
         val cleanId = YouTubeService.cleanVideoId(rawUrlOrId)
         val bundle = YouTubeService().resolveVideoStreams(cleanId)
 
         if (bundle == null || bundle.formats.isEmpty()) {
             Log.w(TAG, "No se obtuvieron streams para resolución múltiple. Usando fallback estándar.")
-            return@withContext download(context, rawUrlOrId, title, DownloadType.VIDEO, onProgress)
+            return@withContext download(context, rawUrlOrId, title, DownloadType.VIDEO, cleanArtist, onProgress)
         }
 
         val progressiveFormat = bundle.formats.find { it.isProgressive }
@@ -245,7 +263,7 @@ object AudioVideoDownloader {
         DownloadRecord(
             id = id,
             title = "$title [$targetResolution]",
-            artist = "",
+            artist = cleanArtist,
             type = DownloadType.VIDEO,
             sourceUrl = rawUrlOrId,
             originalPath = if (status == DownloadStatus.READY) finalFile.absolutePath else "",

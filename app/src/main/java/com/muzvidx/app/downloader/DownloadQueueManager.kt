@@ -65,6 +65,7 @@ object DownloadQueueManager {
                     rawUrlOrId = rawUrl,
                     title = result.title,
                     type = DownloadType.AUDIO,
+                    artist = result.artist,
                     onProgress = { p ->
                         db.downloadDao().update(initialEntity.copy(progress = p))
                     }
@@ -90,7 +91,9 @@ object DownloadQueueManager {
                         val ok = Mp3Converter.convertToMp3(
                             inputPath = record.originalPath,
                             outputPath = out,
-                            context = appCtx
+                            context = appCtx,
+                            title = result.title,
+                            artist = result.artist
                         )
                         if (ok) {
                             mp3Path = out
@@ -159,6 +162,7 @@ object DownloadQueueManager {
                     context = appCtx,
                     rawUrlOrId = rawUrl,
                     title = result.title,
+                    artist = result.artist,
                     targetResolution = targetResolution,
                     onProgress = { p ->
                         db.downloadDao().update(initialEntity.copy(progress = p))
@@ -208,7 +212,13 @@ object DownloadQueueManager {
                     File(it, File(input).nameWithoutExtension + ".mp3")
                 }?.absolutePath ?: (input + ".mp3")
 
-                val success = Mp3Converter.convertToMp3(input, output, context = appCtx)
+                val success = Mp3Converter.convertToMp3(
+                    inputPath = input,
+                    outputPath = output,
+                    context = appCtx,
+                    title = entity.title,
+                    artist = entity.artist
+                )
                 if (success) {
                     db.downloadDao().update(entity.copy(status = "READY", mp3Path = output, progress = 100))
                     withContext(Dispatchers.Main) {

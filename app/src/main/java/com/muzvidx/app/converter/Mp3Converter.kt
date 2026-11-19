@@ -14,13 +14,15 @@ object Mp3Converter {
 
     /**
      * Convierte de forma robusta y rápida un archivo de audio (M4A/AAC) a MP3 usando FFmpeg
-     * con multi-hilo (-threads 4) y paso de argumentos directos para evitar problemas de escape.
+     * con multi-hilo (-threads 4), paso de argumentos directos e incrustación de metadatos ID3 (título y artista).
      */
     suspend fun convertToMp3(
         inputPath: String,
         outputPath: String,
         bitrate: String = "192k",
-        context: Context? = null
+        context: Context? = null,
+        title: String? = null,
+        artist: String? = null
     ): Boolean = withContext(Dispatchers.IO) {
         val inFile = File(inputPath)
         if (!inFile.exists() || inFile.length() < 1000) {
@@ -31,15 +33,26 @@ object Mp3Converter {
         val outFile = File(outputPath)
         outFile.parentFile?.mkdirs()
 
-        val args = arrayOf(
+        val argsList = mutableListOf(
             "-i", inputPath,
             "-vn",
             "-acodec", "libmp3lame",
-            "-b:a", bitrate,
-            "-threads", "4",
-            "-y", outputPath
+            "-b:a", bitrate
         )
-        Log.i(TAG, "Iniciando conversión FFmpeg a MP3: $inputPath -> $outputPath")
+
+        if (!title.isNullOrBlank()) {
+            argsList.add("-metadata")
+            argsList.add("title=$title")
+        }
+        val cleanArtist = artist?.trim()?.replace(Regex("(?i)\\s*-\\s*topic|vevo"), "")?.trim()
+        if (!cleanArtist.isNullOrBlank() && !cleanArtist.equals("Oficial", true) && !cleanArtist.equals("Video Oficial", true)) {
+            argsList.add("-metadata")
+            argsList.add("artist=$cleanArtist")
+        }
+
+        argsList.addAll(listOf("-threads", "4", "-y", outputPath))
+        val args = argsList.toTypedArray()
+        Log.i(TAG, "Iniciando conversión FFmpeg a MP3: $inputPath -> $outputPath (Metadatos: $title - $cleanArtist)")
         try {
             val session = FFmpegKit.executeWithArguments(args)
             val returnCode = session?.returnCode

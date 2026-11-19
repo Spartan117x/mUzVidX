@@ -33,8 +33,16 @@ class DownloadsAdapter(
 
     override fun onBindViewHolder(holder: DownloadViewHolder, position: Int) {
         val item = items[position]
+        val cleanArtist = item.artist.trim().replace(Regex("(?i)\\s*-\\s*topic|vevo"), "").trim()
+        val displayArtist = if (cleanArtist.isNotEmpty() && !cleanArtist.equals("Oficial", true) &&
+            !cleanArtist.equals("Video Oficial", true)
+        ) {
+            cleanArtist
+        } else {
+            "mUzVidX"
+        }
         holder.binding.tvTitle.text = item.title
-        holder.binding.tvArtist.text = item.artist.ifEmpty { "mUzVidX" }
+        holder.binding.tvArtist.text = displayArtist
 
         val isReady = (item.status == "READY")
         val filePath = item.mp3Path ?: item.originalPath

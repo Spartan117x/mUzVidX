@@ -91,7 +91,13 @@ class ConverterFragment : Fragment() {
                     File(it, File(inputPath).nameWithoutExtension + ".mp3")
                 }?.absolutePath ?: (inputPath + ".mp3")
 
-                val success = Mp3Converter.convertToMp3(inputPath, outputPath)
+                val success = Mp3Converter.convertToMp3(
+                    inputPath = inputPath,
+                    outputPath = outputPath,
+                    context = appCtx,
+                    title = entity.title,
+                    artist = entity.artist
+                )
 
                 _binding?.let { currentB ->
                     currentB.progressConvert.visibility = View.GONE

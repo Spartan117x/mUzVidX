@@ -226,7 +226,7 @@ class PlayerActivity : AppCompatActivity() {
                     binding.pbLoadingTrack.visibility = View.VISIBLE
                     Toast.makeText(this@PlayerActivity, "Cargando videoclip oficial…", Toast.LENGTH_SHORT).show()
                     val officialVideo = withContext(Dispatchers.IO) {
-                        YouTubeService().findOfficialVideo(currentTrack.title, currentTrack.artist)
+                        YouTubeService().findOfficialVideo(currentTrack.title, currentTrack.artist, currentTrack.durationSec)
                     }
                     binding.pbLoadingTrack.visibility = View.GONE
                     if (officialVideo != null && PlaybackManager.isVideo) {
@@ -803,9 +803,22 @@ class PlayerActivity : AppCompatActivity() {
     private fun updateUiForCurrentTrack() {
         val track: SearchResult? = PlaybackManager.getCurrentTrack()
         if (track != null) {
+            val cleanArtist = track.artist.trim().replace(Regex("(?i)\\s*-\\s*topic|vevo"), "").trim()
+            val fullHeader = if (cleanArtist.isNotEmpty() && !cleanArtist.equals("Oficial", true) &&
+                !cleanArtist.equals("Video Oficial", true) && !track.title.contains(cleanArtist, true)
+            ) {
+                "${track.title}   •   $cleanArtist"
+            } else {
+                track.title
+            }
+            binding.tvHeaderTitle.text = fullHeader
+            binding.tvHeaderTitle.isSelected = true
+
             binding.tvTitle.text = track.title
-            binding.tvArtist.text = track.artist
-            binding.tvHeaderTitle.text = track.title
+            binding.tvTitle.isSelected = true
+
+            binding.tvArtist.text = if (cleanArtist.isNotEmpty() && !cleanArtist.equals("Oficial", true)) cleanArtist else "mUzVidX"
+            binding.tvArtist.isSelected = true
 
             if (track.thumbUrl.isNotEmpty()) {
                 Glide.with(this)

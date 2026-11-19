@@ -121,17 +121,17 @@ class SearchFragment : Fragment() {
             SearchMode.LIBRARY -> {
                 binding.btnModeLibrary.backgroundTintList = ColorStateList.valueOf(accentColor)
                 binding.btnModeLibrary.setTextColor(darkBg)
-                binding.etSearch.hint = "Buscar artista o canción en YouTube Music…"
+                binding.etSearch.hint = "Buscar canciones o artistas…"
             }
             SearchMode.VIDEOS -> {
                 binding.btnModeVideos.backgroundTintList = ColorStateList.valueOf(accentColor)
                 binding.btnModeVideos.setTextColor(darkBg)
-                binding.etSearch.hint = "Buscar videos musicales oficiales…"
+                binding.etSearch.hint = "Buscar videos oficiales…"
             }
             SearchMode.FREE -> {
                 binding.btnModeFree.backgroundTintList = ColorStateList.valueOf(accentColor)
                 binding.btnModeFree.setTextColor(darkBg)
-                binding.etSearch.hint = "Buscar cualquier video en YouTube libre…"
+                binding.etSearch.hint = "Búsqueda libre en YouTube…"
             }
         }
 
@@ -200,7 +200,7 @@ class SearchFragment : Fragment() {
             // Si es Art Track de audio, obtener el video musical oficial
             val targetResult = if (result.type == ResultType.TRACK) {
                 withContext(Dispatchers.IO) {
-                    ytService.findOfficialVideo(result.title, result.artist)
+                    ytService.findOfficialVideo(result.title, result.artist, result.durationSec)
                 } ?: result
             } else {
                 result

@@ -219,7 +219,13 @@ class MainActivity : AppCompatActivity() {
                             java.io.File(it, java.io.File(input).nameWithoutExtension + ".mp3")
                         }?.absolutePath ?: (input + ".mp3")
                         android.util.Log.i("mUzVidX_Test", "Converting: $input -> $output")
-                        val ok = com.muzvidx.app.converter.Mp3Converter.convertToMp3(input, output)
+                        val ok = com.muzvidx.app.converter.Mp3Converter.convertToMp3(
+                            input,
+                            output,
+                            context = this@MainActivity,
+                            title = item.title,
+                            artist = item.artist
+                        )
                         android.util.Log.i("mUzVidX_Test", "CONVERT_RESULT: ok=$ok, exists=${java.io.File(output).exists()}, bytes=${java.io.File(output).length()}")
                     } else {
                         android.util.Log.w("mUzVidX_Test", "CONVERT: No audio items in DB to convert")

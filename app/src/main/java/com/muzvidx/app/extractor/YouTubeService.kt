@@ -155,11 +155,20 @@ class YouTubeService {
                                 ?.getAsJsonArray("runs")
 
                             if (infoRuns != null && infoRuns.size() > 0) {
-                                artist = infoRuns.get(0).asJsonObject.get("text")?.asString ?: artist
                                 for (r in infoRuns) {
-                                    val t = r.asJsonObject.get("text")?.asString ?: ""
+                                    val t = r.asJsonObject.get("text")?.asString?.trim() ?: ""
+                                    if (t.isEmpty() || t == "•" || t == "·" || t == "|") continue
                                     if (t.contains(":") && t.length in 3..8) {
                                         durationSec = parseDuration(t)
+                                        continue
+                                    }
+                                    val lower = t.lowercase()
+                                    if (lower == "canción" || lower == "song" || lower == "video" ||
+                                        lower == "pista" || lower == "track" || lower == "álbum" || lower == "album") {
+                                        continue
+                                    }
+                                    if (artist == "Oficial" || artist == "Video Oficial" || artist.isEmpty()) {
+                                        artist = t
                                     }
                                 }
                             }
@@ -338,34 +347,106 @@ class YouTubeService {
     }
 
     /**
-     * Resuelve el videoclip oficial real (no la carátula fija) a partir del título y artista
+     * Resuelve el videoclip oficial real (no la carátula fija) a partir del título, artista y duración.
+     * Aplica validación estricta (no devuelve candidates al azar ni results[0] sin verificar).
+     * Si ningún candidato pasa la verificación, devuelve null para que el llamador use la canción exacta.
      */
-    suspend fun findOfficialVideo(title: String, artist: String): SearchResult? =
+    suspend fun findOfficialVideo(title: String, artist: String, durationSec: Long = 0L): SearchResult? =
         withContext(Dispatchers.IO) {
             try {
-                val cleanTitle = title.replace(
-                    Regex("(?i)\\(official.*?\\)|\\[official.*?\\]|\\(audio\\)|\\[audio\\]|\\(video.*?\\)|\\[video.*?\\]"),
-                    ""
-                ).trim()
-                val cleanArtist = if (artist.equals("Oficial", ignoreCase = true) || artist.isEmpty()) "" else artist
+                val cleanTitle = cleanTargetTitle(title)
+                val cleanArtist = if (artist.equals("Oficial", ignoreCase = true) ||
+                    artist.equals("Video Oficial", ignoreCase = true) || artist.isEmpty()
+                ) "" else artist.replace(Regex("(?i)\\s*-\\s*topic|vevo"), "").trim()
 
                 // 1. Primero intentar en YouTube Music con filtro de videos oficiales
-                val musicVideoResults = searchYouTubeMusic("$cleanArtist $cleanTitle", isVideoFilter = true, limit = 5)
-                if (musicVideoResults.isNotEmpty()) {
-                    return@withContext musicVideoResults[0]
+                val musicVideoResults = searchYouTubeMusic("$cleanArtist $cleanTitle", isVideoFilter = true, limit = 6)
+                for (candidate in musicVideoResults) {
+                    if (isStrictMatch(candidate, cleanTitle, cleanArtist, durationSec)) {
+                        Log.i(TAG, "Video oficial validado en YT Music: '${candidate.title}' para '$title - $artist'")
+                        return@withContext candidate
+                    }
                 }
 
                 // 2. Fallback a búsqueda Web para video oficial
                 val webQuery = "$cleanArtist $cleanTitle official video".trim()
-                val webResults = searchYouTubeWeb(webQuery, limit = 5)
-                if (webResults.isNotEmpty()) {
-                    return@withContext webResults[0]
+                val webResults = searchYouTubeWeb(webQuery, limit = 6)
+                for (candidate in webResults) {
+                    if (isStrictMatch(candidate, cleanTitle, cleanArtist, durationSec)) {
+                        Log.i(TAG, "Video oficial validado en YT Web: '${candidate.title}' para '$title - $artist'")
+                        return@withContext candidate
+                    }
                 }
+                Log.w(TAG, "Ningún video oficial cumplió con la verificación exacta para '$title - $artist'. Retornando null.")
             } catch (e: Exception) {
                 Log.e(TAG, "Error finding official video for $title", e)
             }
             null
         }
+
+    private fun cleanTargetTitle(rawTitle: String): String {
+        return rawTitle
+            .replace(Regex("(?i)\\(official.*?\\)|\\[official.*?\\]|\\(video.*?\\)|\\[video.*?\\]|\\(audio.*?\\)|\\[audio.*?\\]|\\(lyric.*?\\)|\\[lyric.*?\\]|\\(feat.*?\\)|\\[feat.*?\\]|\\(ft.*?\\)|\\[ft.*?\\]|\\(remaster.*?\\)|\\[remaster.*?\\]|\\(deluxe.*?\\)|\\[deluxe.*?\\]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    private fun normalizeForMatch(text: String): String {
+        return text.lowercase()
+            .replace(Regex("[^a-z0-9áéíóúñü\\s]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    private fun isStrictMatch(
+        candidate: SearchResult,
+        cleanTargetTitle: String,
+        cleanTargetArtist: String,
+        targetDurationSec: Long
+    ): Boolean {
+        val normTargetTitle = normalizeForMatch(cleanTargetTitle)
+        if (normTargetTitle.isEmpty()) return false
+
+        val candTitleWithoutParens = normalizeForMatch(
+            candidate.title.replace(Regex("\\(.*?\\)|\\[.*?\\]"), " ")
+        )
+        val normCandTitle = normalizeForMatch(candidate.title)
+
+        // 1. El candidato debe contener el título EXACTO de la pista (normalizado)
+        val titleMatches = normCandTitle.contains(normTargetTitle) ||
+                candTitleWithoutParens.contains(normTargetTitle)
+        if (!titleMatches) return false
+
+        // 2. Filtrar covers o remixes no solicitados si la pista objetivo no lo es
+        val isTargetRemix = normTargetTitle.contains("remix")
+        if (!isTargetRemix && (normCandTitle.contains("remix") || candTitleWithoutParens.contains("remix"))) {
+            return false
+        }
+        val isTargetCover = normTargetTitle.contains("cover")
+        if (!isTargetCover && (normCandTitle.contains("cover") || candTitleWithoutParens.contains("cover"))) {
+            return false
+        }
+
+        // 3. El artista debe aparecer en el artista del candidato, su canal o su título
+        val normTargetArtist = normalizeForMatch(cleanTargetArtist)
+        if (normTargetArtist.isNotEmpty() && normTargetArtist != "oficial" && normTargetArtist != "video oficial") {
+            val normCandArtist = normalizeForMatch(candidate.artist)
+            val normCandChannel = normalizeForMatch(candidate.officialChannel)
+
+            val artistMatches = normCandArtist.contains(normTargetArtist) ||
+                    normCandChannel.contains(normTargetArtist) ||
+                    normCandTitle.contains(normTargetArtist)
+            if (!artistMatches) return false
+        }
+
+        // 4. Si se conoce la duración, el candidato debe durar casi igual (+-10 s)
+        if (targetDurationSec > 0 && candidate.durationSec > 0) {
+            val diff = kotlin.math.abs(candidate.durationSec - targetDurationSec)
+            if (diff > 10) return false
+        }
+
+        return true
+    }
 
     /**
      * Resuelve el stream directo real (audio AAC o video MP4) sin dependencias externas
