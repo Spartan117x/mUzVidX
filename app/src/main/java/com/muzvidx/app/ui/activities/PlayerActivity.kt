@@ -829,6 +829,90 @@ class PlayerActivity : AppCompatActivity() {
         checkFavoriteStatus()
     }
 
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+            when (event.keyCode) {
+                android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                android.view.KeyEvent.KEYCODE_HEADSETHOOK -> {
+                    binding.btnPlay.performClick()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                    if (!PlaybackManager.isPlaying) binding.btnPlay.performClick()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                    if (PlaybackManager.isPlaying) binding.btnPlay.performClick()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                    binding.btnNext.performClick()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                    binding.btnPrev.performClick()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                    val pos = PlaybackManager.getCurrentPositionMs() + 10000
+                    PlaybackManager.seekTo(pos)
+                    showControlsBriefly()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                    val pos = Math.max(0, PlaybackManager.getCurrentPositionMs() - 10000)
+                    PlaybackManager.seekTo(pos)
+                    showControlsBriefly()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER -> {
+                    if (!isControlsVisible) {
+                        toggleControlsVisibility()
+                        return true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    if (!isControlsVisible && PlaybackManager.isVideo) {
+                        val pos = Math.max(0, PlaybackManager.getCurrentPositionMs() - 10000)
+                        PlaybackManager.seekTo(pos)
+                        showControlsBriefly()
+                        return true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    if (!isControlsVisible && PlaybackManager.isVideo) {
+                        val pos = PlaybackManager.getCurrentPositionMs() + 10000
+                        PlaybackManager.seekTo(pos)
+                        showControlsBriefly()
+                        return true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_UP,
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (!isControlsVisible) {
+                        toggleControlsVisibility()
+                        return true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_BACK -> {
+                    if (isEqualizerVisible) {
+                        binding.btnEqualizer.performClick()
+                        return true
+                    }
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun showControlsBriefly() {
+        if (!isControlsVisible) {
+            toggleControlsVisibility()
+        }
+        scheduleControlsAutoHide()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         uiRunnable?.let { handler.removeCallbacks(it) }

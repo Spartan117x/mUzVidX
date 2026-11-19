@@ -60,7 +60,30 @@ class SearchResultsAdapter(
         applyTouchFeedback(holder.binding.btnDownloadVideo)
         applyTouchFeedback(holder.binding.root)
 
-        // Tap en el elemento -> Reproducir en mUzVidX
+        // Resaltado de enfoque para control remoto de Smart TV
+        holder.binding.root.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.025f).scaleY(1.025f).setDuration(120).start()
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+            }
+        }
+        holder.binding.btnDownloadAudio.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(100).start()
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+            }
+        }
+        holder.binding.btnDownloadVideo.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(100).start()
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+            }
+        }
+
+        // Tap o D-pad Center en el elemento -> Reproducir en mUzVidX
         holder.binding.root.setOnClickListener {
             onPlayItem(item, position)
         }

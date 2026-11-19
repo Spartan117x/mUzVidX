@@ -4,6 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
     android:background="@color/bg_dark">
 
     <!-- Header de la Aplicación -->
@@ -58,7 +60,7 @@
         android:paddingStart="16dp"
         android:paddingEnd="6dp"
         android:paddingVertical="4dp"
-        android:background="@drawable/bg_search_input"
+        android:background="@drawable/selector_search_input"
         android:gravity="center_vertical">
 
         <EditText
@@ -74,18 +76,26 @@
             android:imeOptions="actionSearch"
             android:inputType="text"
             android:singleLine="true"
-            android:ellipsize="end" />
+            android:ellipsize="end"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusRight="@+id/btnSearch"
+            android:nextFocusDown="@+id/btnModeLibrary" />
 
         <ImageButton
             android:id="@+id/btnSearch"
             android:layout_width="38dp"
             android:layout_height="38dp"
             android:layout_marginStart="6dp"
-            android:background="@drawable/bg_circle_accent"
+            android:background="@drawable/selector_btn_circle_accent"
             android:src="@drawable/ic_search"
             android:tint="@color/bg_dark"
             android:padding="9dp"
-            android:contentDescription="@string/search_btn" />
+            android:contentDescription="@string/search_btn"
+            android:focusable="true"
+            android:clickable="true"
+            android:nextFocusLeft="@+id/etSearch"
+            android:nextFocusDown="@+id/btnModeLibrary" />
 
     </LinearLayout>
 
@@ -111,7 +121,12 @@
             android:paddingHorizontal="4dp"
             android:backgroundTint="@color/accent"
             android:textColor="@color/bg_dark"
-            app:cornerRadius="19dp" />
+            app:cornerRadius="19dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:nextFocusUp="@+id/etSearch"
+            android:nextFocusRight="@+id/btnModeVideos"
+            android:nextFocusDown="@+id/rvResults" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnModeVideos"
@@ -128,7 +143,13 @@
             android:textColor="@color/text_secondary"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp"
-            app:cornerRadius="19dp" />
+            app:cornerRadius="19dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:nextFocusUp="@+id/etSearch"
+            android:nextFocusLeft="@+id/btnModeLibrary"
+            android:nextFocusRight="@+id/btnModeFree"
+            android:nextFocusDown="@+id/rvResults" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnModeFree"
@@ -145,7 +166,12 @@
             android:textColor="@color/text_secondary"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp"
-            app:cornerRadius="19dp" />
+            app:cornerRadius="19dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:nextFocusUp="@+id/etSearch"
+            android:nextFocusLeft="@+id/btnModeVideos"
+            android:nextFocusDown="@+id/rvResults" />
 
     </LinearLayout>
 
@@ -172,7 +198,9 @@
             android:layout_height="match_parent"
             android:paddingHorizontal="10dp"
             android:paddingVertical="4dp"
-            android:clipToPadding="false" />
+            android:clipToPadding="false"
+            android:focusable="true"
+            android:nextFocusUp="@+id/btnModeLibrary" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 

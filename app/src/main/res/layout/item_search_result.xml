@@ -5,6 +5,9 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="6dp"
     android:layout_marginVertical="4dp"
+    android:focusable="true"
+    android:clickable="true"
+    android:foreground="@drawable/selector_card_focus"
     app:cardBackgroundColor="@color/bg_card"
     app:cardCornerRadius="14dp"
     app:cardElevation="2dp">
@@ -14,7 +17,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="10dp"
-        android:descendantFocusability="afterDescendants"
+        android:descendantFocusability="beforeDescendants"
         android:gravity="center_vertical">
 
         <!-- Contenedor de Miniatura con Duración superpuesta -->
@@ -99,12 +102,12 @@
                 android:id="@+id/btnDownloadAudio"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@drawable/bg_circle_accent"
+                android:background="@drawable/selector_btn_circle_accent"
                 android:src="@drawable/ic_download"
                 android:tint="@color/accent"
                 android:contentDescription="Descargar Audio"
                 android:clickable="true"
-                android:focusable="false"
+                android:focusable="true"
                 android:padding="8dp" />
 
             <!-- Botón Descargar Video -->
@@ -113,12 +116,12 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginStart="6dp"
-                android:background="@drawable/bg_circle_magenta"
+                android:background="@drawable/selector_btn_circle_magenta"
                 android:src="@drawable/ic_video"
                 android:tint="@color/accent_magenta"
                 android:contentDescription="Descargar Video"
                 android:clickable="true"
-                android:focusable="false"
+                android:focusable="true"
                 android:padding="8dp" />
 
         </LinearLayout>

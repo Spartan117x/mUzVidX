@@ -84,13 +84,21 @@ class SearchFragment : Fragment() {
             }
         }
 
-        binding.etSearch.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+        binding.etSearch.setOnEditorActionListener { _, actionId, event ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+                actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                (event != null && event.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN)
+            ) {
                 binding.btnSearch.performClick()
                 true
             } else {
                 false
             }
+        }
+
+        // Evitar que el teclado virtual se abra automáticamente en Smart TV
+        binding.root.post {
+            binding.root.requestFocus()
         }
 
         binding.swipeRefresh.setColorSchemeResources(R.color.accent)
