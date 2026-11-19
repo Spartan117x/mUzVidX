@@ -3,24 +3,22 @@ package com.muzvidx.app.ui.fragments
 import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.button.MaterialButton
 import com.muzvidx.app.R
-import com.muzvidx.app.converter.Mp3Converter
 import com.muzvidx.app.databinding.FragmentSearchBinding
-import com.muzvidx.app.db.DownloadDatabase
-import com.muzvidx.app.db.DownloadEntity
-import com.muzvidx.app.downloader.AudioVideoDownloader
 import com.muzvidx.app.downloader.DownloadQueueManager
 import com.muzvidx.app.extractor.YouTubeService
-import com.muzvidx.app.model.DownloadStatus
-import com.muzvidx.app.model.DownloadType
-import com.muzvidx.app.model.ResultType
 import com.muzvidx.app.model.SearchMode
 import com.muzvidx.app.model.SearchResult
 import com.muzvidx.app.ui.activities.MainActivity
@@ -28,8 +26,6 @@ import com.muzvidx.app.ui.adapters.SearchResultsAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.util.UUID
 
 class SearchFragment : Fragment() {
 
@@ -80,25 +76,27 @@ class SearchFragment : Fragment() {
         binding.btnSearch.setOnClickListener {
             val query = binding.etSearch.text.toString().trim()
             if (query.isNotEmpty() && !isSearching) {
+                hideKeyboard()
                 doSearch(query)
             }
         }
 
+        // Click en la caja de búsqueda abre el teclado en Smart TV
+        binding.etSearch.setOnClickListener {
+            showKeyboard()
+        }
+
         binding.etSearch.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
-                actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
-                (event != null && event.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN)
+            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                actionId == EditorInfo.IME_ACTION_DONE ||
+                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
             ) {
+                hideKeyboard()
                 binding.btnSearch.performClick()
                 true
             } else {
                 false
             }
-        }
-
-        // Evitar que el teclado virtual se abra automáticamente en Smart TV
-        binding.root.post {
-            binding.root.requestFocus()
         }
 
         binding.swipeRefresh.setColorSchemeResources(R.color.accent)
@@ -107,41 +105,118 @@ class SearchFragment : Fragment() {
             val query = binding.etSearch.text.toString().trim()
             if (query.isNotEmpty()) doSearch(query) else binding.swipeRefresh.isRefreshing = false
         }
+
+        // Configuración de foco y resaltado visual para Smart TV / Control Remoto
+        setupTvFocusStyles()
+        updateNavigationPointers(false)
+
+        // Foco inicial en el botón "Canciones" para que el usuario pueda empezar a navegar de inmediato
+        binding.btnModeLibrary.post {
+            binding.btnModeLibrary.requestFocus()
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
+    }
+
+    private fun setupTvFocusStyles() {
+        val accentColor = ContextCompat.getColor(requireContext(), R.color.accent)
+        val dividerColor = ContextCompat.getColor(requireContext(), R.color.divider)
+
+        val modeButtons = listOf(binding.btnModeLibrary, binding.btnModeVideos, binding.btnModeFree)
+        for (btn in modeButtons) {
+            btn.setOnFocusChangeListener { v, hasFocus ->
+                val mb = v as? MaterialButton ?: return@setOnFocusChangeListener
+                val isActive = when (mb.id) {
+                    R.id.btnModeLibrary -> currentMode == SearchMode.LIBRARY
+                    R.id.btnModeVideos -> currentMode == SearchMode.VIDEOS
+                    R.id.btnModeFree -> currentMode == SearchMode.FREE
+                    else -> false
+                }
+                if (hasFocus) {
+                    mb.animate().scaleX(1.08f).scaleY(1.08f).setDuration(100).start()
+                    mb.strokeWidth = dpToPx(3)
+                    mb.strokeColor = ColorStateList.valueOf(accentColor)
+                    mb.elevation = dpToPx(8).toFloat()
+                } else {
+                    mb.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                    mb.strokeWidth = if (isActive) 0 else dpToPx(1)
+                    mb.strokeColor = ColorStateList.valueOf(dividerColor)
+                    mb.elevation = dpToPx(2).toFloat()
+                }
+            }
+        }
+
+        binding.btnSearch.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(100).start()
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+            }
+        }
+
+        binding.etSearch.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                binding.searchContainer.animate().scaleX(1.02f).scaleY(1.02f).setDuration(100).start()
+            } else {
+                binding.searchContainer.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+            }
+        }
+    }
+
+    private fun updateNavigationPointers(hasResults: Boolean) {
+        val downTargetId = if (hasResults) R.id.rvResults else R.id.bottomNav
+        binding.btnModeLibrary.nextFocusDownId = downTargetId
+        binding.btnModeVideos.nextFocusDownId = downTargetId
+        binding.btnModeFree.nextFocusDownId = downTargetId
+    }
+
+    private fun showKeyboard() {
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
     }
 
     private fun setMode(mode: SearchMode) {
         currentMode = mode
-        val accentColor = requireContext().getColor(R.color.accent)
-        val darkBg = requireContext().getColor(R.color.bg_dark)
-        val cardBg = requireContext().getColor(R.color.bg_card)
-        val mutedText = requireContext().getColor(R.color.text_secondary)
+        val accentColor = ContextCompat.getColor(requireContext(), R.color.accent)
+        val darkBg = ContextCompat.getColor(requireContext(), R.color.bg_dark)
+        val cardBg = ContextCompat.getColor(requireContext(), R.color.bg_card)
+        val mutedText = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+        val dividerColor = ContextCompat.getColor(requireContext(), R.color.divider)
 
         // Reset todos a estilo inactivo
-        binding.btnModeLibrary.backgroundTintList = ColorStateList.valueOf(cardBg)
-        binding.btnModeLibrary.setTextColor(mutedText)
-        binding.btnModeVideos.backgroundTintList = ColorStateList.valueOf(cardBg)
-        binding.btnModeVideos.setTextColor(mutedText)
-        binding.btnModeFree.backgroundTintList = ColorStateList.valueOf(cardBg)
-        binding.btnModeFree.setTextColor(mutedText)
+        val buttons = listOf(binding.btnModeLibrary, binding.btnModeVideos, binding.btnModeFree)
+        for (btn in buttons) {
+            btn.backgroundTintList = ColorStateList.valueOf(cardBg)
+            btn.setTextColor(mutedText)
+            btn.strokeWidth = if (btn.hasFocus()) dpToPx(3) else dpToPx(1)
+            btn.strokeColor = ColorStateList.valueOf(if (btn.hasFocus()) accentColor else dividerColor)
+        }
 
         // Resaltar el botón activo
-        when (mode) {
+        val activeBtn = when (mode) {
             SearchMode.LIBRARY -> {
-                binding.btnModeLibrary.backgroundTintList = ColorStateList.valueOf(accentColor)
-                binding.btnModeLibrary.setTextColor(darkBg)
                 binding.etSearch.hint = "Buscar canciones o artistas…"
+                binding.btnModeLibrary
             }
             SearchMode.VIDEOS -> {
-                binding.btnModeVideos.backgroundTintList = ColorStateList.valueOf(accentColor)
-                binding.btnModeVideos.setTextColor(darkBg)
                 binding.etSearch.hint = "Buscar videos oficiales…"
+                binding.btnModeVideos
             }
             SearchMode.FREE -> {
-                binding.btnModeFree.backgroundTintList = ColorStateList.valueOf(accentColor)
-                binding.btnModeFree.setTextColor(darkBg)
                 binding.etSearch.hint = "Búsqueda libre en YouTube…"
+                binding.btnModeFree
             }
         }
+        activeBtn.backgroundTintList = ColorStateList.valueOf(accentColor)
+        activeBtn.setTextColor(darkBg)
+        activeBtn.strokeWidth = if (activeBtn.hasFocus()) dpToPx(3) else 0
 
         val q = binding.etSearch.text.toString().trim()
         if (q.isNotEmpty()) {
@@ -166,6 +241,7 @@ class SearchFragment : Fragment() {
 
                 currentResults = results
                 adapter.updateResults(results)
+                updateNavigationPointers(results.isNotEmpty())
 
                 _binding?.let { bindingRef ->
                     if (results.isEmpty()) {
@@ -173,6 +249,10 @@ class SearchFragment : Fragment() {
                         bindingRef.tvStatus.visibility = View.VISIBLE
                     } else {
                         bindingRef.tvStatus.visibility = View.GONE
+                        // En Smart TV: enfocar automáticamente la primera tarjeta de resultados
+                        bindingRef.rvResults.post {
+                            bindingRef.rvResults.layoutManager?.findViewByPosition(0)?.requestFocus()
+                        }
                     }
                 }
             } catch (e: Exception) {

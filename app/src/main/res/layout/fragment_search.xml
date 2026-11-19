@@ -4,8 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:focusable="true"
-    android:focusableInTouchMode="true"
+    android:descendantFocusability="afterDescendants"
     android:background="@color/bg_dark">
 
     <!-- Header de la Aplicación -->
@@ -52,6 +51,7 @@
 
     <!-- Campo de Búsqueda Estilizado y Espacioso -->
     <LinearLayout
+        android:id="@+id/searchContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -78,14 +78,14 @@
             android:singleLine="true"
             android:ellipsize="end"
             android:focusable="true"
-            android:focusableInTouchMode="true"
+            android:clickable="true"
             android:nextFocusRight="@+id/btnSearch"
             android:nextFocusDown="@+id/btnModeLibrary" />
 
         <ImageButton
             android:id="@+id/btnSearch"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_marginStart="6dp"
             android:background="@drawable/selector_btn_circle_accent"
             android:src="@drawable/ic_search"
@@ -95,12 +95,13 @@
             android:focusable="true"
             android:clickable="true"
             android:nextFocusLeft="@+id/etSearch"
-            android:nextFocusDown="@+id/btnModeLibrary" />
+            android:nextFocusDown="@+id/btnModeFree" />
 
     </LinearLayout>
 
-    <!-- Selector de Modo (3 Opciones Claras: Canciones, Videos Oficiales, Modo Libre) -->
+    <!-- Selector de Modo (3 Opciones: Canciones, Videos Oficiales, Modo Libre) -->
     <LinearLayout
+        android:id="@+id/modesContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -111,17 +112,17 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnModeLibrary"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="42dp"
             android:layout_weight="1"
             android:text="Canciones"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:paddingHorizontal="4dp"
             android:backgroundTint="@color/accent"
             android:textColor="@color/bg_dark"
-            app:cornerRadius="19dp"
+            app:cornerRadius="21dp"
             android:focusable="true"
             android:clickable="true"
             android:nextFocusUp="@+id/etSearch"
@@ -131,11 +132,11 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnModeVideos"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:text="Videos"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:paddingHorizontal="4dp"
@@ -143,7 +144,7 @@
             android:textColor="@color/text_secondary"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp"
-            app:cornerRadius="19dp"
+            app:cornerRadius="21dp"
             android:focusable="true"
             android:clickable="true"
             android:nextFocusUp="@+id/etSearch"
@@ -154,11 +155,11 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnModeFree"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:text="Modo Libre"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:paddingHorizontal="4dp"
@@ -166,10 +167,10 @@
             android:textColor="@color/text_secondary"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp"
-            app:cornerRadius="19dp"
+            app:cornerRadius="21dp"
             android:focusable="true"
             android:clickable="true"
-            android:nextFocusUp="@+id/etSearch"
+            android:nextFocusUp="@+id/btnSearch"
             android:nextFocusLeft="@+id/btnModeVideos"
             android:nextFocusDown="@+id/rvResults" />
 
@@ -190,7 +191,9 @@
         android:id="@+id/swipeRefresh"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:focusable="false"
+        android:descendantFocusability="afterDescendants">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvResults"
@@ -200,6 +203,7 @@
             android:paddingVertical="4dp"
             android:clipToPadding="false"
             android:focusable="true"
+            android:descendantFocusability="afterDescendants"
             android:nextFocusUp="@+id/btnModeLibrary" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
