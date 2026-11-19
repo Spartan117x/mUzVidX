@@ -108,7 +108,8 @@
                 android:contentDescription="Descargar Audio"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="8dp" />
+                android:padding="8dp"
+                android:nextFocusRight="@+id/btnDownloadVideo" />
 
             <!-- Botón Descargar Video -->
             <ImageButton
@@ -122,7 +123,9 @@
                 android:contentDescription="Descargar Video"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="8dp" />
+                android:padding="8dp"
+                android:nextFocusLeft="@+id/btnDownloadAudio"
+                android:nextFocusRight="@+id/btnPlay" />
 
         </LinearLayout>
 

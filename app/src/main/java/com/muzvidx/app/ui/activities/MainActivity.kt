@@ -3,6 +3,7 @@ package com.muzvidx.app.ui.activities
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.OvershootInterpolator
@@ -277,6 +278,49 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                KeyEvent.KEYCODE_HEADSETHOOK -> {
+                    if (PlaybackManager.player?.isPlaying == true) {
+                        PlaybackManager.pause()
+                    } else {
+                        PlaybackManager.resume()
+                    }
+                    updateMiniPlayer()
+                    return true
+                }
+                KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                    PlaybackManager.resume()
+                    updateMiniPlayer()
+                    return true
+                }
+                KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                    PlaybackManager.pause()
+                    updateMiniPlayer()
+                    return true
+                }
+                KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                    PlaybackManager.playNext()
+                    updateMiniPlayer()
+                    return true
+                }
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                    PlaybackManager.playPrev()
+                    updateMiniPlayer()
+                    return true
+                }
+                KeyEvent.KEYCODE_MEDIA_STOP -> {
+                    PlaybackManager.stop()
+                    updateMiniPlayer()
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onDestroy() {

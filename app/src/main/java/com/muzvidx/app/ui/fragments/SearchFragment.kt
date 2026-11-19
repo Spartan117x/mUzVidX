@@ -164,10 +164,11 @@ class SearchFragment : Fragment() {
     }
 
     private fun updateNavigationPointers(hasResults: Boolean) {
-        val downTargetId = if (hasResults) R.id.rvResults else R.id.bottomNav
+        val downTargetId = if (hasResults) R.id.rvResults else R.id.btnPlay
         binding.btnModeLibrary.nextFocusDownId = downTargetId
         binding.btnModeVideos.nextFocusDownId = downTargetId
-        binding.btnModeFree.nextFocusDownId = downTargetId
+        // "Modo Libre" proporciona un atajo directo para bajar hacia el reproductor
+        binding.btnModeFree.nextFocusDownId = R.id.btnPlay
     }
 
     private fun showKeyboard() {
