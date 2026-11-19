@@ -48,6 +48,32 @@ class YouTubeService {
         private const val PARAMS_MUSIC_SONGS = "EgWKAQIIAWoQEAMQBBAJEAoQBRAREBAQFQ%3D%3D"
         private const val PARAMS_MUSIC_VIDEOS = "EgWKAQIQAWoQEAMQBBAJEAoQBRAREBAQFQ%3D%3D"
 
+        private val FAN_BLACKLIST = listOf(
+            "lyrics", "lyric", "letra", "letras",
+            "subtitulad", "subtitulado", "subtitulada", "sub. español", "sub espanol", "sub esp", "sub eng",
+            "traducida", "traducido", "traducción", "traduccion", "tradução", "traducao",
+            "legendado", "legendada", "legendas", "clipe legendado",
+            "karaoke", "instrumental", "acapella", "a capella", "backing track",
+            "cover", "tributo", "tribute", "parodia", "parody",
+            "reacción", "reaccion", "reaction",
+            "tutorial", "how to play", "guitar lesson", "piano tutorial", "drum cover", "drumless",
+            "slowed", "reverb", "nightcore", "bass boosted", "8d audio", "sped up",
+            "status", "whatsapp status", "tiktok", "short", "shorts",
+            "making of", "behind the scenes", "detrás de cámaras", "detras de camaras", "teaser"
+        )
+
+        private val LIVE_KEYWORDS = listOf(
+            "live", "en vivo", "en directo", "ao vivo", "concierto", "festival",
+            "glastonbury", "tour", "acoustic session", "tiny desk"
+        )
+
+        private val MAJOR_LABELS = listOf(
+            "warner", "sony music", "universal music", "atlantic records", "spinnin",
+            "hybe", "smtown", "jyp", "interscope", "columbia", "rca", "def jam",
+            "capitol records", "epic records", "republic records", "virgin records",
+            "fueled by ramen", "ultra records"
+        )
+
         fun cleanVideoId(rawUrlOrId: String): String {
             var s = rawUrlOrId.trim()
             if (s.contains("v=")) {
@@ -348,36 +374,54 @@ class YouTubeService {
 
     /**
      * Resuelve el videoclip oficial real (no la carátula fija) a partir del título, artista y duración.
-     * Aplica validación estricta (no devuelve candidates al azar ni results[0] sin verificar).
+     * Aplica validación estricta y algoritmo de scoring para seleccionar el videoclip oficial auténtico,
+     * descartando estrictamente videos de fans, letras/lyrics, subtitulados, covers, karaokes o canales ajenos.
      * Si ningún candidato pasa la verificación, devuelve null para que el llamador use la canción exacta.
      */
     suspend fun findOfficialVideo(title: String, artist: String, durationSec: Long = 0L): SearchResult? =
         withContext(Dispatchers.IO) {
             try {
                 val cleanTitle = cleanTargetTitle(title)
-                val cleanArtist = if (artist.equals("Oficial", ignoreCase = true) ||
-                    artist.equals("Video Oficial", ignoreCase = true) || artist.isEmpty()
-                ) "" else artist.replace(Regex("(?i)\\s*-\\s*topic|vevo"), "").trim()
+                val cleanArtist = cleanTargetArtist(artist)
 
-                // 1. Primero intentar en YouTube Music con filtro de videos oficiales
-                val musicVideoResults = searchYouTubeMusic("$cleanArtist $cleanTitle", isVideoFilter = true, limit = 6)
+                var bestCandidate: SearchResult? = null
+                var bestScore = 0
+
+                // 1. Primero intentar en YouTube Music con filtro de videos oficiales (hasta 10 candidatos)
+                val musicVideoResults = searchYouTubeMusic("$cleanArtist $cleanTitle", isVideoFilter = true, limit = 10)
                 for (candidate in musicVideoResults) {
-                    if (isStrictMatch(candidate, cleanTitle, cleanArtist, durationSec)) {
-                        Log.i(TAG, "Video oficial validado en YT Music: '${candidate.title}' para '$title - $artist'")
-                        return@withContext candidate
+                    val (score, reason) = scoreCandidate(candidate, cleanTitle, cleanArtist, durationSec)
+                    Log.d(TAG, "YT Music candidate: '${candidate.title}' by '${candidate.officialChannel}' score=$score ($reason)")
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestCandidate = candidate
                     }
+                }
+
+                // Si encontramos un candidato con puntuación muy alta (>= 150) en YT Music, retornarlo de inmediato
+                if (bestCandidate != null && bestScore >= 150) {
+                    Log.i(TAG, "Video oficial seleccionado en YT Music: '${bestCandidate.title}' por '${bestCandidate.officialChannel}' (score=$bestScore)")
+                    return@withContext bestCandidate
                 }
 
                 // 2. Fallback a búsqueda Web para video oficial
                 val webQuery = "$cleanArtist $cleanTitle official video".trim()
-                val webResults = searchYouTubeWeb(webQuery, limit = 6)
+                val webResults = searchYouTubeWeb(webQuery, limit = 10)
                 for (candidate in webResults) {
-                    if (isStrictMatch(candidate, cleanTitle, cleanArtist, durationSec)) {
-                        Log.i(TAG, "Video oficial validado en YT Web: '${candidate.title}' para '$title - $artist'")
-                        return@withContext candidate
+                    val (score, reason) = scoreCandidate(candidate, cleanTitle, cleanArtist, durationSec)
+                    Log.d(TAG, "YT Web candidate: '${candidate.title}' by '${candidate.officialChannel}' score=$score ($reason)")
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestCandidate = candidate
                     }
                 }
-                Log.w(TAG, "Ningún video oficial cumplió con la verificación exacta para '$title - $artist'. Retornando null.")
+
+                if (bestCandidate != null && bestScore >= 80) {
+                    Log.i(TAG, "Video oficial seleccionado: '${bestCandidate.title}' por '${bestCandidate.officialChannel}' (score=$bestScore)")
+                    return@withContext bestCandidate
+                }
+
+                Log.w(TAG, "Ningún video oficial cumplió con la verificación exacta para '$title - $artist' (mejor score=$bestScore). Retornando null.")
             } catch (e: Exception) {
                 Log.e(TAG, "Error finding official video for $title", e)
             }
@@ -386,66 +430,173 @@ class YouTubeService {
 
     private fun cleanTargetTitle(rawTitle: String): String {
         return rawTitle
-            .replace(Regex("(?i)\\(official.*?\\)|\\[official.*?\\]|\\(video.*?\\)|\\[video.*?\\]|\\(audio.*?\\)|\\[audio.*?\\]|\\(lyric.*?\\)|\\[lyric.*?\\]|\\(feat.*?\\)|\\[feat.*?\\]|\\(ft.*?\\)|\\[ft.*?\\]|\\(remaster.*?\\)|\\[remaster.*?\\]|\\(deluxe.*?\\)|\\[deluxe.*?\\]"), " ")
+            .replace(Regex("(?i)\\((official|video|audio|lyric|feat|ft|remaster|deluxe|bonus|extended).*?\\)|\\[(official|video|audio|lyric|feat|ft|remaster|deluxe|bonus|extended).*?\\]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
+    }
+
+    private fun cleanTargetArtist(artist: String): String {
+        if (artist.equals("Oficial", ignoreCase = true) ||
+            artist.equals("Video Oficial", ignoreCase = true) || artist.isEmpty()
+        ) return ""
+        return artist
+            .replace(Regex("(?i)\\s*-\\s*topic|vevo"), "")
+            .trim()
+    }
+
+    private fun stripAccents(text: String): String {
+        val normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+        return normalized.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
     }
 
     private fun normalizeForMatch(text: String): String {
-        return text.lowercase()
-            .replace(Regex("[^a-z0-9áéíóúñü\\s]"), " ")
+        return stripAccents(text.lowercase())
+            .replace(Regex("[^a-z0-9\\s]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
     }
 
-    private fun isStrictMatch(
+    private fun scoreCandidate(
         candidate: SearchResult,
         cleanTargetTitle: String,
         cleanTargetArtist: String,
         targetDurationSec: Long
-    ): Boolean {
+    ): Pair<Int, String> {
         val normTargetTitle = normalizeForMatch(cleanTargetTitle)
-        if (normTargetTitle.isEmpty()) return false
+        val normTargetArtist = normalizeForMatch(cleanTargetArtist)
+        val normCandTitle = normalizeForMatch(candidate.title)
+        val normCandChannel = normalizeForMatch(candidate.officialChannel)
+        val normCandArtist = normalizeForMatch(candidate.artist)
 
+        if (normTargetTitle.isEmpty()) return -1000 to "Target title empty"
+
+        // 1. Blacklist check (lyrics, subtitulados, covers, karaokes, etc.)
+        for (bad in FAN_BLACKLIST) {
+            val normBad = normalizeForMatch(bad)
+            if (normCandTitle.contains(normBad) && !normTargetTitle.contains(normBad)) {
+                return -1000 to "Blacklisted keyword: $bad"
+            }
+        }
+
+        // 2. Filtrar remixes no solicitados si la pista objetivo no es remix
+        val isTargetRemix = normTargetTitle.contains("remix")
+        if (!isTargetRemix && normCandTitle.contains("remix")) {
+            return -1000 to "Unwanted remix"
+        }
+
+        // 3. El candidato debe contener el título de la pista
         val candTitleWithoutParens = normalizeForMatch(
             candidate.title.replace(Regex("\\(.*?\\)|\\[.*?\\]"), " ")
         )
-        val normCandTitle = normalizeForMatch(candidate.title)
-
-        // 1. El candidato debe contener el título EXACTO de la pista (normalizado)
         val titleMatches = normCandTitle.contains(normTargetTitle) ||
                 candTitleWithoutParens.contains(normTargetTitle)
-        if (!titleMatches) return false
 
-        // 2. Filtrar covers o remixes no solicitados si la pista objetivo no lo es
-        val isTargetRemix = normTargetTitle.contains("remix")
-        if (!isTargetRemix && (normCandTitle.contains("remix") || candTitleWithoutParens.contains("remix"))) {
-            return false
-        }
-        val isTargetCover = normTargetTitle.contains("cover")
-        if (!isTargetCover && (normCandTitle.contains("cover") || candTitleWithoutParens.contains("cover"))) {
-            return false
+        if (!titleMatches) {
+            val coreWords = normTargetTitle.split(" ").filter { it.length >= 3 }
+            if (coreWords.isEmpty() || !coreWords.all { normCandTitle.contains(it) }) {
+                return -1000 to "Title mismatch"
+            }
         }
 
-        // 3. El artista debe aparecer en el artista del candidato, su canal o su título
-        val normTargetArtist = normalizeForMatch(cleanTargetArtist)
+        // 4. Verificación estricta de Artista y Canal (¡JAMÁS validar el artista solo con el título del video!)
+        var artistMatch = false
+        var isVevo = false
+        var isLabel = false
+
         if (normTargetArtist.isNotEmpty() && normTargetArtist != "oficial" && normTargetArtist != "video oficial") {
-            val normCandArtist = normalizeForMatch(candidate.artist)
-            val normCandChannel = normalizeForMatch(candidate.officialChannel)
+            val artistTokens = normTargetArtist.split(Regex("(?i)\\b(?:feat\\.?|ft\\.?|featuring|with|and|&|y|\\bx\\b)\\b|[,&]"))
+            val stopwords = setOf("feat", "ft", "featuring", "with", "and", "the", "los", "las", "del", "por", "y")
+            val artistParts = artistTokens.map { normalizeForMatch(it) }
+                .filter { it.length >= 2 && it !in stopwords }
 
-            val artistMatches = normCandArtist.contains(normTargetArtist) ||
-                    normCandChannel.contains(normTargetArtist) ||
-                    normCandTitle.contains(normTargetArtist)
-            if (!artistMatches) return false
+            val channelClean = normCandChannel.replace(Regex("\\b(official|oficial|vevo|topic|music|channel|records|tv)\\b"), "").trim()
+            val artistClean = normCandArtist.replace(Regex("\\b(official|oficial|vevo|topic|music|channel|records|tv)\\b"), "").trim()
+
+            for (part in artistParts) {
+                if (channelClean.contains(part) || part.contains(channelClean) ||
+                    artistClean.contains(part) || part.contains(artistClean) ||
+                    normCandChannel.contains(part)) {
+                    artistMatch = true
+                    if (normCandChannel.contains("vevo")) {
+                        isVevo = true
+                    }
+                    break
+                }
+            }
+
+            if (!artistMatch) {
+                // Verificar si es un canal de discográfica oficial (major label)
+                for (label in MAJOR_LABELS) {
+                    if (normCandChannel.contains(label)) {
+                        for (part in artistParts) {
+                            if (normCandTitle.contains(part)) {
+                                isLabel = true
+                                artistMatch = true
+                                break
+                            }
+                        }
+                        if (artistMatch) break
+                    }
+                }
+            }
+
+            if (!artistMatch) {
+                return -1000 to "Channel mismatch: '${candidate.officialChannel}' not affiliated with '$cleanTargetArtist'"
+            }
         }
 
-        // 4. Si se conoce la duración, el candidato debe durar casi igual (+-10 s)
+        var score = 0
+        if (isVevo) {
+            score += 120
+        } else if (normCandChannel == normTargetArtist) {
+            score += 120
+        } else if (isLabel) {
+            score += 80
+        } else {
+            score += 90
+        }
+
+        // Bonificación por título exacto u oficial
+        if (normCandTitle == normTargetTitle || candTitleWithoutParens == normTargetTitle) {
+            score += 60
+        } else if (normCandTitle.contains("official video") || normCandTitle.contains("official music video") || normCandTitle.contains("video oficial")) {
+            score += 50
+        } else if (normCandTitle.contains("official") || normCandTitle.contains("oficial")) {
+            score += 20
+        }
+
+        // Penalización por concierto/live cuando el target es versión de estudio
+        val isTargetLive = LIVE_KEYWORDS.any { normTargetTitle.contains(it) }
+        if (!isTargetLive) {
+            if (LIVE_KEYWORDS.any { normCandTitle.contains(it) }) {
+                score -= 80
+            }
+        }
+
+        // Penalización por audio estático si buscamos video musical
+        if (normCandTitle.contains("audio") && !normCandTitle.contains("video")) {
+            score -= 40
+        }
+
+        // Verificación de duración con margen realista para intros/outros cinematográficos de videoclips
         if (targetDurationSec > 0 && candidate.durationSec > 0) {
-            val diff = kotlin.math.abs(candidate.durationSec - targetDurationSec)
-            if (diff > 10) return false
+            val diff = candidate.durationSec - targetDurationSec
+            if (diff < -25) {
+                return -1000 to "Too short: ${candidate.durationSec}s vs target ${targetDurationSec}s"
+            } else if (diff > 240) {
+                return -1000 to "Too long: ${candidate.durationSec}s vs target ${targetDurationSec}s"
+            } else if (kotlin.math.abs(diff) <= 15) {
+                score += 40
+            } else if (diff <= 60) {
+                score += 30 // Intro de video oficial típica
+            } else if (diff <= 120) {
+                score += 20
+            } else {
+                score += 10
+            }
         }
 
-        return true
+        return score to "OK"
     }
 
     /**
