@@ -36,6 +36,19 @@ class AudioFilesAdapter(
             onConvert(item)
             Toast.makeText(holder.itemView.context, "Convirtiendo ${item.title}…", Toast.LENGTH_SHORT).show()
         }
+
+        holder.binding.root.setOnClickListener {
+            onConvert(item)
+            Toast.makeText(holder.itemView.context, "Convirtiendo ${item.title}…", Toast.LENGTH_SHORT).show()
+        }
+
+        holder.binding.root.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.02f).scaleY(1.02f).setDuration(120).start()
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+            }
+        }
     }
 
     override fun getItemCount(): Int = items.size

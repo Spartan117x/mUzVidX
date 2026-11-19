@@ -85,6 +85,11 @@ class DownloadsFragment : Fragment() {
 
         loadDownloads(db)
         startPolling(db)
+
+        // Foco inicial en las pestañas para Smart TV
+        binding.tabLayoutDownloads.post {
+            binding.tabLayoutDownloads.getTabAt(currentTab)?.view?.requestFocus()
+        }
     }
 
     private fun startPolling(db: DownloadDatabase) {

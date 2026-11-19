@@ -235,9 +235,7 @@
             android:singleLine="true"
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
-            android:scrollHorizontally="true"
-            android:focusable="true"
-            android:focusableInTouchMode="true" />
+            android:scrollHorizontally="true" />
 
         <ImageButton
             android:id="@+id/btnEqualizer"
@@ -432,9 +430,7 @@
             android:singleLine="true"
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
-            android:scrollHorizontally="true"
-            android:focusable="true"
-            android:focusableInTouchMode="true" />
+            android:scrollHorizontally="true" />
 
         <TextView
             android:id="@+id/tvArtist"
@@ -447,9 +443,7 @@
             android:singleLine="true"
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
-            android:scrollHorizontally="true"
-            android:focusable="true"
-            android:focusableInTouchMode="true" />
+            android:scrollHorizontally="true" />
 
         <!-- SeekBar & Time Indicators -->
         <LinearLayout

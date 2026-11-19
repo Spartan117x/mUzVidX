@@ -4,6 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:descendantFocusability="afterDescendants"
     android:background="@color/bg_dark">
 
     <!-- Top Header con Switch de Auto-Conversión a MP3 -->
@@ -34,7 +35,9 @@
             android:textColor="@color/accent"
             android:checked="true"
             app:thumbTint="@color/accent"
-            app:trackTint="@color/accent_soft" />
+            app:trackTint="@color/accent_soft"
+            android:focusable="true"
+            android:nextFocusDown="@+id/tabLayoutDownloads" />
 
     </LinearLayout>
 
@@ -47,7 +50,10 @@
         app:tabTextColor="@color/text_secondary"
         app:tabSelectedTextColor="@color/accent"
         app:tabIndicatorColor="@color/accent"
-        app:tabIndicatorHeight="3dp">
+        app:tabIndicatorHeight="3dp"
+        android:focusable="true"
+        android:nextFocusUp="@+id/switchAutoConvert"
+        android:nextFocusDown="@+id/rvAudio">
 
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
@@ -69,7 +75,10 @@
         android:layout_weight="1"
         android:paddingHorizontal="8dp"
         android:paddingVertical="6dp"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:focusable="true"
+        android:descendantFocusability="afterDescendants"
+        android:nextFocusUp="@+id/tabLayoutDownloads" />
 
     <!-- Lista de Videos -->
     <androidx.recyclerview.widget.RecyclerView
@@ -80,6 +89,9 @@
         android:paddingHorizontal="8dp"
         android:paddingVertical="6dp"
         android:clipToPadding="false"
+        android:focusable="true"
+        android:descendantFocusability="afterDescendants"
+        android:nextFocusUp="@+id/tabLayoutDownloads"
         android:visibility="gone" />
 
     <TextView

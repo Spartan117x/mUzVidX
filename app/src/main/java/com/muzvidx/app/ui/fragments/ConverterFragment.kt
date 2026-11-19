@@ -52,6 +52,18 @@ class ConverterFragment : Fragment() {
             selectedEntity?.let { convert(it) }
         }
 
+        binding.btnConvert.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.03f).scaleY(1.03f).setDuration(120).start()
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+            }
+        }
+
+        binding.btnConvert.post {
+            binding.btnConvert.requestFocus()
+        }
+
         loadAudioFiles()
     }
 

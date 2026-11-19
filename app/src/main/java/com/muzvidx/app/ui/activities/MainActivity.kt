@@ -67,10 +67,26 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // Mini player buttons con animaciones táctiles
+        // Mini player buttons con animaciones táctiles y foco para Smart TV
         applyTouchFeedback(binding.miniPlayer.btnPlay)
         applyTouchFeedback(binding.miniPlayer.btnNext)
         applyTouchFeedback(binding.miniPlayer.btnPrev)
+
+        listOf(
+            binding.miniPlayer.btnPlay,
+            binding.miniPlayer.btnPrev,
+            binding.miniPlayer.btnNext,
+            binding.miniPlayer.root
+        ).forEach { v ->
+            v.setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) {
+                    val s = if (view == binding.miniPlayer.root) 1.02f else 1.15f
+                    view.animate().scaleX(s).scaleY(s).setDuration(120).start()
+                } else {
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+                }
+            }
+        }
 
         binding.miniPlayer.btnPlay.setOnClickListener {
             if (PlaybackManager.player?.isPlaying == true) {

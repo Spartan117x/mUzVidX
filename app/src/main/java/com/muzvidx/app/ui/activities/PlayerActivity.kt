@@ -197,8 +197,40 @@ class PlayerActivity : AppCompatActivity() {
         checkFavoriteStatus()
         startUiUpdater()
 
+        // Habilitar auto-scroll (marquee) en textos sin requerir foco
+        binding.tvHeaderTitle.isSelected = true
+        binding.tvTitle.isSelected = true
+        binding.tvArtist.isSelected = true
+
+        // Configuración de foco y resaltado para control remoto de Smart TV
+        setupTvFocusStyles()
+        binding.btnPlay.post {
+            binding.btnPlay.requestFocus()
+        }
+
         // Configuración inicial de orientación y layout
         checkCurrentOrientation(resources.configuration.orientation)
+    }
+
+    private fun setupTvFocusStyles() {
+        val focusViews = listOf(
+            binding.btnPlay, binding.btnPrev, binding.btnNext,
+            binding.btnMinimize, binding.btnEqualizer, binding.btnQuality,
+            binding.btnVisualizer, binding.btnRotate, binding.btnPip, binding.btnClose,
+            binding.btnModeAudio, binding.btnModeVideo, binding.btnFavorite,
+            binding.btnAddToPlaylist, binding.btnRepeat, binding.switchContinuous,
+            binding.seekBar
+        )
+        for (v in focusViews) {
+            v.setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) {
+                    val scale = if (view.id == R.id.btnPlay) 1.15f else 1.12f
+                    view.animate().scaleX(scale).scaleY(scale).setDuration(120).start()
+                } else {
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+                }
+            }
+        }
     }
 
     private fun toggleVisualizer() {
@@ -528,8 +560,11 @@ class PlayerActivity : AppCompatActivity() {
         binding.bottomControls.visibility = vis
 
         autoHideRunnable?.let { handler.removeCallbacks(it) }
-        if (isControlsVisible && PlaybackManager.isVideo && PlaybackManager.isPlaying) {
-            scheduleControlsAutoHide()
+        if (isControlsVisible) {
+            binding.btnPlay.post { binding.btnPlay.requestFocus() }
+            if (PlaybackManager.isVideo && PlaybackManager.isPlaying) {
+                scheduleControlsAutoHide()
+            }
         }
     }
 
@@ -870,10 +905,13 @@ class PlayerActivity : AppCompatActivity() {
                     if (!isControlsVisible) {
                         toggleControlsVisibility()
                         return true
+                    } else if (currentFocus == null) {
+                        binding.btnPlay.performClick()
+                        return true
                     }
                 }
                 android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    if (!isControlsVisible && PlaybackManager.isVideo) {
+                    if (!isControlsVisible) {
                         val pos = Math.max(0, PlaybackManager.getCurrentPositionMs() - 10000)
                         PlaybackManager.seekTo(pos)
                         showControlsBriefly()
@@ -881,7 +919,7 @@ class PlayerActivity : AppCompatActivity() {
                     }
                 }
                 android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (!isControlsVisible && PlaybackManager.isVideo) {
+                    if (!isControlsVisible) {
                         val pos = PlaybackManager.getCurrentPositionMs() + 10000
                         PlaybackManager.seekTo(pos)
                         showControlsBriefly()
@@ -898,6 +936,9 @@ class PlayerActivity : AppCompatActivity() {
                 android.view.KeyEvent.KEYCODE_BACK -> {
                     if (isEqualizerVisible) {
                         binding.btnEqualizer.performClick()
+                        return true
+                    } else {
+                        finish()
                         return true
                     }
                 }

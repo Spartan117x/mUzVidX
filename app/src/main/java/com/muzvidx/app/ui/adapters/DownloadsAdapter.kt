@@ -120,6 +120,24 @@ class DownloadsAdapter(
         applyTouchFeedback(holder.binding.btnDelete)
         applyTouchFeedback(holder.binding.btnConvertMp3)
 
+        // Resaltado de foco para control remoto Smart TV
+        holder.binding.root.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.02f).scaleY(1.02f).setDuration(120).start()
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+            }
+        }
+        listOf(holder.binding.btnPlay, holder.binding.btnDelete, holder.binding.btnConvertMp3).forEach { btn ->
+            btn.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(100).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                }
+            }
+        }
+
         holder.binding.btnPlay.setOnClickListener {
             if (isReady && fileExists) {
                 onPlay(item)
