@@ -7,14 +7,18 @@ import android.util.LruCache
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
@@ -39,7 +43,7 @@ object PlaybackManager {
         "com.google.ios.youtube/20.11.6 (iPhone10,4; U; CPU iOS 16_7_7 like Mac OS X)"
 
     fun getHttpDataSourceFactory(url: String): DefaultHttpDataSource.Factory {
-        val ua = if (url.contains("c=IOS") || url.contains("c%3DIOS")) USER_AGENT_IOS else USER_AGENT_ANDROID
+        val ua = if (url.contains("c=IOS") || url.contains("c%3DIOS") || url.contains("hls") || url.contains("manifest")) USER_AGENT_IOS else USER_AGENT_ANDROID
         return DefaultHttpDataSource.Factory()
             .setUserAgent(ua)
             .setConnectTimeoutMs(15000)
@@ -68,6 +72,7 @@ object PlaybackManager {
 
     var currentVideoResolution: String = "Auto"
     var currentVideoStreamsBundle: VideoStreamsBundle? = null
+    var desiredVideoHeight: Int? = null
     val visualizerAudioProcessor = RealtimeVisualizerAudioProcessor()
 
     fun init(context: Context) {
@@ -147,26 +152,55 @@ object PlaybackManager {
                         }
                     }
 
+                    override fun onTracksChanged(tracks: Tracks) {
+                        if (!isVideoMode) return
+                        val targetHeight = desiredVideoHeight ?: return
+                        val targetVideoGroup = tracks.groups.find { group ->
+                            group.type == C.TRACK_TYPE_VIDEO &&
+                                    (0 until group.length).any { group.getTrackFormat(it).height == targetHeight }
+                        }
+                        if (targetVideoGroup != null && !targetVideoGroup.isSelected) {
+                            val trackIndex = (0 until targetVideoGroup.length).firstOrNull {
+                                targetVideoGroup.getTrackFormat(it).height == targetHeight
+                            } ?: 0
+                            Log.i(TAG, "Forzando TrackSelectionOverride para resolución ${targetHeight}p (track $trackIndex)")
+                            player?.trackSelectionParameters = player?.trackSelectionParameters?.buildUpon()
+                                ?.setOverrideForType(TrackSelectionOverride(targetVideoGroup.mediaTrackGroup, trackIndex))
+                                ?.build() ?: return
+                        }
+                    }
+
                     override fun onPlayerError(error: PlaybackException) {
                         isLoadingTrack = false
                         onLoadingStateListener?.invoke(false)
                         Log.e(TAG, "Error en ExoPlayer: ${error.errorCodeName} - ${error.message}", error)
 
-                        // 1. Si falló un formato adaptativo (MergingMediaSource / 720p / 1080p), reintentar automáticamente
-                        // con el stream progresivo oficial garantizado (itag 18 / 360p) para ESTE MISMO video (sin saltar al siguiente)
+                        // Si falló un formato adaptativo (720p / 1080p), continuar fluidamente
+                        // con el stream progresivo oficial garantizado (itag 18 / 360p) para ESTE MISMO video
+                        // manteniendo la posición exacta de reproducción (SIN reiniciar desde 0:00 ni crear bucle)
                         val progFormat = currentVideoStreamsBundle?.formats?.find { it.isProgressive }
-                        if (isVideo && progFormat != null && currentVideoResolution != "360p") {
-                            Log.w(TAG, "Resolución $currentVideoResolution falló. Reintentando con stream progresivo garantizado (360p) para el mismo video...")
+                        if (isVideo && progFormat != null && desiredVideoHeight != 360) {
+                            val currentPos = getCurrentPositionMs()
+                            Log.w(TAG, "Resolución adaptativa requiere fallback en posición ${currentPos}ms. Continuando fluidamente en 360p...")
+                            desiredVideoHeight = 360
                             currentVideoResolution = "360p"
                             onResolutionChangedListener?.invoke("360p")
+
                             scope.launch {
                                 try {
                                     val httpFactory = getHttpDataSourceFactory(progFormat.videoUrl)
                                     val source = ProgressiveMediaSource.Factory(httpFactory)
                                         .createMediaSource(MediaItem.fromUri(Uri.parse(progFormat.videoUrl)))
-                                    player?.setMediaSource(source, 0L)
+                                    player?.trackSelectionParameters = player?.trackSelectionParameters?.buildUpon()
+                                        ?.clearVideoSizeConstraints()
+                                        ?.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                                        ?.build() ?: return@launch
+                                    player?.setMediaSource(source, currentPos)
                                     player?.prepare()
                                     player?.play()
+                                    appContext?.let {
+                                        Toast.makeText(it, "Continuando reproducción en calidad fluida (360p)", Toast.LENGTH_SHORT).show()
+                                    }
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Fallback progresivo falló", e)
                                     appContext?.let {
@@ -177,7 +211,7 @@ object PlaybackManager {
                             return
                         }
 
-                        // 2. Si no es posible recuperar, NO entrar en bucle infinito saltando temas.
+                        // Si no es posible recuperar, NO entrar en bucle infinito saltando temas.
                         // Mantener la pista actual y avisar al usuario.
                         appContext?.let {
                             Toast.makeText(it, "No se pudo reproducir este contenido", Toast.LENGTH_SHORT).show()
@@ -343,10 +377,10 @@ object PlaybackManager {
 
     fun switchVideoResolution(quality: String) {
         currentVideoResolution = quality
+        isVideoMode = true
         onResolutionChangedListener?.invoke(quality)
 
         val track = getCurrentTrack() ?: return
-        if (!isVideo) return
         val rawUrl = track.videoUrl.ifEmpty { track.audioUrl }
         val currentPos = getCurrentPositionMs()
 
@@ -385,76 +419,165 @@ object PlaybackManager {
         val p = player ?: return
 
         try {
-            // Caso 1: Manifiesto HLS disponible
+            currentVideoStreamsBundle = bundle
+
+            // 0. Si existe manifiesto HLS oficial, usar HlsMediaSource.
+            // HLS provee streams continuos en 1080p, 720p, 480p, 360p con audio integrado
+            // y ratebypass=yes sin bloqueos 403 a los 60 segundos.
             if (!bundle.hlsManifestUrl.isNullOrEmpty()) {
-                val httpSourceFactory = getHttpDataSourceFactory(bundle.hlsManifestUrl)
-                if (quality == "Auto") {
-                    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                        .clearVideoSizeConstraints()
-                        .build()
-                } else {
-                    val (w, h) = when (quality) {
-                        "1080p" -> Pair(1920, 1080)
-                        "720p" -> Pair(1280, 720)
-                        "480p" -> Pair(854, 480)
-                        "360p" -> Pair(640, 360)
-                        "240p" -> Pair(426, 240)
-                        else -> Pair(1280, 720)
-                    }
-                    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                        .setMaxVideoSize(w, h)
-                        .setMinVideoSize(w, h)
-                        .build()
+                val targetHeight = when (quality) {
+                    "1080p" -> 1080
+                    "720p" -> 720
+                    "480p" -> 480
+                    "360p" -> 360
+                    "240p" -> 240
+                    else -> null // Auto
                 }
-                Log.i(TAG, "Aplicando HLS en ExoPlayer (calidad=$quality): ${bundle.hlsManifestUrl}")
+                desiredVideoHeight = targetHeight
+
+                val hlsHttpFactory = getHttpDataSourceFactory(bundle.hlsManifestUrl)
+                val hlsSource = HlsMediaSource.Factory(hlsHttpFactory)
+                    .setAllowChunklessPreparation(true)
+                    .createMediaSource(
+                        MediaItem.Builder()
+                            .setUri(Uri.parse(bundle.hlsManifestUrl))
+                            .setMimeType(MimeTypes.APPLICATION_M3U8)
+                            .build()
+                    )
+
+                val paramBuilder = p.trackSelectionParameters.buildUpon()
+                if (targetHeight != null) {
+                    val maxW = (targetHeight * 16) / 9 + 100
+                    val minW = (targetHeight * 16) / 9 - 100
+                    paramBuilder.setMaxVideoSize(maxW, targetHeight)
+                        .setMinVideoSize(minW.coerceAtLeast(1), (targetHeight - 20).coerceAtLeast(1))
+                } else {
+                    paramBuilder.clearVideoSizeConstraints()
+                }
+                p.trackSelectionParameters = paramBuilder.build()
+
+                Log.i(TAG, "Reproduciendo mediante HlsMediaSource (calidad=$quality, targetHeight=$targetHeight)")
+                p.setMediaSource(hlsSource, startPosMs)
+                p.prepare()
+                p.play()
+                return
+            }
+
+            // 1. Identificar stream progresivo garantizado (itag 18 / 360p)
+            val progFormat = bundle.formats.find { it.isProgressive }
+
+            // 2. Si no hay HLS y la calidad es Auto o 360p: usar directamente el stream progresivo oficial
+            // que garantiza reproducción 100% continua de inicio a fin sin cortes ni bloqueos 403
+            if ((quality == "Auto" || quality == "360p") && progFormat != null) {
+                desiredVideoHeight = 360
+                val httpSourceFactory = getHttpDataSourceFactory(progFormat.videoUrl)
                 val mediaSource = ProgressiveMediaSource.Factory(httpSourceFactory)
-                    .createMediaSource(MediaItem.fromUri(Uri.parse(bundle.hlsManifestUrl)))
+                    .createMediaSource(MediaItem.fromUri(Uri.parse(progFormat.videoUrl)))
+
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .clearVideoSizeConstraints()
+                    .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                    .build()
+
+                Log.i(TAG, "Cargando video progresivo directo 360p (itag 18): ${progFormat.videoUrl}")
                 p.setMediaSource(mediaSource, startPosMs)
                 p.prepare()
                 p.play()
                 return
             }
 
-            // Caso 2: Formatos directos HTTP (1080p, 720p, 480p, 360p)
-            val progressiveFormat = bundle.formats.find { it.isProgressive }
-            val selectedFormat = if (quality == "Auto") {
-                // En modo Auto, priorizar el stream progresivo (itag 18 / 360p) que garantiza reproducción inmediata, fluida y sin bloqueos 403
-                progressiveFormat ?: bundle.formats.find { it.qualityLabel == "720p" } ?: bundle.formats.firstOrNull()
-            } else {
-                bundle.formats.find { it.qualityLabel == quality } ?: progressiveFormat ?: bundle.formats.firstOrNull()
+            // 3. Seleccionar el formato objetivo según la resolución deseada
+            val selectedFormat = when (quality) {
+                "1080p" -> bundle.formats.find { it.qualityLabel == "1080p" }
+                    ?: bundle.formats.find { it.qualityLabel == "720p" }
+                    ?: progFormat
+                "720p" -> bundle.formats.find { it.qualityLabel == "720p" }
+                    ?: bundle.formats.find { it.qualityLabel == "1080p" }
+                    ?: progFormat
+                "480p" -> bundle.formats.find { it.qualityLabel == "480p" }
+                    ?: bundle.formats.find { it.qualityLabel == "720p" }
+                    ?: progFormat
+                "240p" -> bundle.formats.find { it.qualityLabel == "240p" }
+                    ?: bundle.formats.find { it.qualityLabel == "360p" }
+                    ?: progFormat
+                "Auto" -> {
+                    bundle.formats.find { it.qualityLabel == "720p" }
+                        ?: bundle.formats.find { it.qualityLabel == "1080p" }
+                        ?: progFormat
+                        ?: bundle.formats.firstOrNull()
+                }
+                else -> bundle.formats.find { it.qualityLabel == quality } ?: progFormat ?: bundle.formats.firstOrNull()
             }
 
-            if (selectedFormat != null) {
-                val httpSourceFactory = getHttpDataSourceFactory(selectedFormat.videoUrl)
-                if (selectedFormat.isProgressive || selectedFormat.audioUrl.isNullOrEmpty()) {
-                    Log.i(TAG, "Cargando video progresivo directo (${selectedFormat.qualityLabel}): ${selectedFormat.videoUrl}")
-                    val mediaSource = ProgressiveMediaSource.Factory(httpSourceFactory)
-                        .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.videoUrl)))
-                    p.setMediaSource(mediaSource, startPosMs)
-                    p.prepare()
-                    p.play()
-                } else {
-                    Log.i(TAG, "Cargando MergingMediaSource video (${selectedFormat.qualityLabel}) + audio AAC")
-                    val audioHttpSourceFactory = getHttpDataSourceFactory(selectedFormat.audioUrl)
-                    val videoSource = ProgressiveMediaSource.Factory(httpSourceFactory)
-                        .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.videoUrl)))
-                    val audioSource = ProgressiveMediaSource.Factory(audioHttpSourceFactory)
-                        .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.audioUrl)))
-                    val merged = MergingMediaSource(videoSource, audioSource)
+            if (selectedFormat == null) {
+                Log.w(TAG, "No se encontró formato disponible en el bundle para calidad=$quality")
+                return
+            }
 
-                    p.setMediaSource(merged, startPosMs)
-                    p.prepare()
-                    p.play()
-                }
-            } else {
-                Log.i(TAG, "Cargando default stream: ${bundle.defaultStreamUrl}")
-                val httpSourceFactory = getHttpDataSourceFactory(bundle.defaultStreamUrl)
+            Log.i(TAG, "Aplicando resolución: solicitada=$quality, formato=${selectedFormat.qualityLabel}, isProg=${selectedFormat.isProgressive}")
+
+            if (selectedFormat.isProgressive) {
+                // Caso Progresivo Directo (360p muxed)
+                desiredVideoHeight = 360
+                val httpSourceFactory = getHttpDataSourceFactory(selectedFormat.videoUrl)
                 val mediaSource = ProgressiveMediaSource.Factory(httpSourceFactory)
-                    .createMediaSource(MediaItem.fromUri(Uri.parse(bundle.defaultStreamUrl)))
+                    .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.videoUrl)))
+
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .clearVideoSizeConstraints()
+                    .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                    .build()
+
                 p.setMediaSource(mediaSource, startPosMs)
                 p.prepare()
                 p.play()
+                return
             }
+
+            // Caso Adaptativo HD (1080p, 720p, 480p, 240p)
+            val targetHeight = when (selectedFormat.qualityLabel) {
+                "1080p" -> 1080
+                "720p" -> 720
+                "480p" -> 480
+                "240p" -> 240
+                else -> Regex("(\\d+)").find(selectedFormat.qualityLabel)?.groupValues?.get(1)?.toIntOrNull() ?: 720
+            }
+            desiredVideoHeight = targetHeight
+
+            // ChunkedHttpDataSource para video adaptativo para evitar el bloqueo HTTP 403 de GoogleVideo
+            val vFactory = getHttpDataSourceFactory(selectedFormat.videoUrl)
+            val chunkedVFactory = ChunkedHttpDataSource.Factory(vFactory, 1024 * 1024L)
+            val videoSource = ProgressiveMediaSource.Factory(chunkedVFactory)
+                .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.videoUrl)))
+
+            // Audio: itag 18 contiene audio estéreo AAC completo sin límites de descarga ni 403
+            val audioSource = if (progFormat != null) {
+                val progFactory = getHttpDataSourceFactory(progFormat.videoUrl)
+                ProgressiveMediaSource.Factory(progFactory)
+                    .createMediaSource(MediaItem.fromUri(Uri.parse(progFormat.videoUrl)))
+            } else if (!selectedFormat.audioUrl.isNullOrEmpty()) {
+                val aFactory = getHttpDataSourceFactory(selectedFormat.audioUrl)
+                val chunkedAFactory = ChunkedHttpDataSource.Factory(aFactory, 512 * 1024L)
+                ProgressiveMediaSource.Factory(chunkedAFactory)
+                    .createMediaSource(MediaItem.fromUri(Uri.parse(selectedFormat.audioUrl)))
+            } else {
+                null
+            }
+
+            // Guiar al selector de pistas de ExoPlayer a la resolución objetivo
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setMinVideoSize(targetHeight - 20, targetHeight - 20)
+                .build()
+
+            val mediaSource = if (audioSource != null) {
+                MergingMediaSource(videoSource, audioSource)
+            } else {
+                videoSource
+            }
+
+            p.setMediaSource(mediaSource, startPosMs)
+            p.prepare()
+            p.play()
         } catch (e: Exception) {
             Log.e(TAG, "Error aplicando stream de video a ExoPlayer", e)
         }

@@ -810,12 +810,24 @@ class YouTubeService {
                     val itag = f.get("itag")?.asInt ?: 0
                     val size = f.get("contentLength")?.asLong ?: 0L
 
-                    if (mime.contains("video/mp4")) {
-                        val cleanQl = ql.split(" ")[0].trim() // "1080p", "720p", etc.
-                        if (!formatMap.containsKey(cleanQl)) {
-                            formatMap[cleanQl] = VideoFormatOption(
+                    if (mime.contains("video/mp4") || mime.contains("video/webm")) {
+                        val baseQl = when {
+                            ql.contains("2160p") -> "2160p"
+                            ql.contains("1440p") -> "1440p"
+                            ql.contains("1080p") -> "1080p"
+                            ql.contains("720p") -> "720p"
+                            ql.contains("480p") -> "480p"
+                            ql.contains("360p") -> "360p"
+                            ql.contains("240p") -> "240p"
+                            ql.contains("144p") -> "144p"
+                            else -> ql.split(" ")[0].trim()
+                        }
+                        // Priorizar mp4 sobre webm si ya existe la resolución
+                        val existing = formatMap[baseQl]
+                        if (existing == null || (!existing.videoUrl.contains("mime=video%2Fmp4") && mime.contains("video/mp4"))) {
+                            formatMap[baseQl] = VideoFormatOption(
                                 itag = itag,
-                                qualityLabel = cleanQl,
+                                qualityLabel = baseQl,
                                 videoUrl = url,
                                 audioUrl = bestAudioUrl,
                                 sizeBytes = size,

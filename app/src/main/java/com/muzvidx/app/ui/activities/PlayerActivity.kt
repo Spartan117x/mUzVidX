@@ -257,8 +257,13 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun setVisualMode(isVideo: Boolean) {
+        val wasVideo = PlaybackManager.isVideo
         PlaybackManager.isVideoMode = isVideo
         updateVisualLayout()
+        if (isVideo && !wasVideo) {
+            binding.playerView.player = PlaybackManager.player
+            PlaybackManager.switchVideoResolution(PlaybackManager.currentVideoResolution)
+        }
     }
 
     /**
@@ -424,6 +429,21 @@ class PlayerActivity : AppCompatActivity() {
             binding.actionsBar.visibility = View.GONE
             binding.bottomControls.setPadding(40, 0, 40, 4)
             binding.playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+            // Navegación fluida para Smart TV / Control Remoto:
+            // Al pulsar ARRIBA desde los controles inferiores, saltar directo a la barra superior (Selector de Calidad)
+            binding.btnPlay.nextFocusUpId = R.id.btnQuality
+            binding.btnRewind.nextFocusUpId = R.id.btnQuality
+            binding.btnForward.nextFocusUpId = R.id.btnQuality
+            binding.btnPrev.nextFocusUpId = R.id.btnMinimize
+            binding.btnNext.nextFocusUpId = R.id.btnClose
+
+            binding.btnQuality.nextFocusDownId = R.id.btnPlay
+            binding.btnQuality.nextFocusLeftId = R.id.btnEqualizer
+            binding.btnQuality.nextFocusRightId = R.id.btnRotate
+            binding.btnMinimize.nextFocusDownId = R.id.btnPrev
+            binding.btnClose.nextFocusDownId = R.id.btnNext
+
             if (PlaybackManager.isVideo && PlaybackManager.isPlaying) {
                 scheduleControlsAutoHide()
             }
@@ -435,6 +455,12 @@ class PlayerActivity : AppCompatActivity() {
             binding.actionsBar.visibility = View.VISIBLE
             binding.bottomControls.setPadding(32, 12, 32, 24)
             binding.playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+            binding.btnPlay.nextFocusUpId = R.id.btnFavorite
+            binding.btnRewind.nextFocusUpId = R.id.btnFavorite
+            binding.btnForward.nextFocusUpId = R.id.btnRepeat
+            binding.btnPrev.nextFocusUpId = R.id.btnFavorite
+            binding.btnNext.nextFocusUpId = R.id.btnRepeat
         }
         updateVisualLayout()
     }
@@ -996,6 +1022,7 @@ class PlayerActivity : AppCompatActivity() {
         binding.visualizerView.releaseVisualizer()
         PlaybackManager.onTrackChangedListener = null
         PlaybackManager.onLoadingStateListener = null
+        PlaybackManager.onResolutionChangedListener = null
         if (!isChangingConfigurations) {
             binding.playerView.player = null
         }
