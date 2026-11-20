@@ -11,11 +11,71 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Android Platform" />
+  <img src="https://img.shields.io/badge/Android_TV-Google_TV_Ready-blue.svg" alt="Android TV Ready" />
   <img src="https://img.shields.io/badge/Kotlin-1.9.0-purple.svg" alt="Kotlin" />
   <img src="https://img.shields.io/badge/Media3_ExoPlayer-1.5.1-blue.svg" alt="ExoPlayer" />
   <img src="https://img.shields.io/badge/FFmpeg_Kit-6.1.4-red.svg" alt="FFmpeg" />
   <img src="https://img.shields.io/badge/License-GPL_v3.0-orange.svg" alt="License GPL v3" />
 </p>
+
+---
+
+## 📺 Novedades en v1.0.2: Experiencia Nativa Android TV & Streaming 1080p
+
+mUzVidX v1.0.2 introduce compatibilidad total para **Android TV**, **Google TV** y **TV Boxes** mediante una **única APK universal**. Gracias a la integración del lanzador Leanback, el mismo instalador se adapta a pantallas táctiles (smartphones/tablets) y televisores inteligentes.
+
+### 🌟 Características Destacadas para TV:
+- **Lanzador Leanback & Banner Panorámico**: La app aparece de forma nativa en la pantalla principal de Android TV con su banner oficial en alta definición (`banner_tv.png`).
+- **Navegación 100% con Control Remoto (D-Pad)**: No requiere ratón ni puntero virtual. Desplazamiento fluido entre pestañas, buscador, resultados de contenido y controles de reproducción.
+- **Indicadores Visuales de Foco**: Todos los elementos interactivos cuentan con bordes brillantes y realces de alto contraste (cian/magenta) para identificar claramente la posición del foco en pantallas grandes.
+- **Mini Reproductor Inteligente**: Al presionar el botón `Atrás` en el reproductor de video/audio, la pantalla completa se minimiza suavemente al mini reproductor inferior sin pausar la música, permitiendo seguir buscando y navegando la biblioteca.
+- **Streaming 1080p Nativo Inmutable (Sin Cortes a los 62s)**: Motor de extracción HLS (`VISIONOS` + `visitorData`) que suministra streams continuos oficiales de GoogleVideo en **1080p Full HD**. Elimina de raíz el corte forzado de los 62 segundos (límite de 15 MB de streams adaptativos directos) y evita la degradación a 360p. La resolución elegida se mantiene en el primer video y en todos los siguientes de la cola.
+
+---
+
+## 🎮 Guía de Uso con el Control Remoto (Android TV)
+
+La interfaz de usuario ha sido adaptada para garantizar una experiencia de 10 pies (10-foot UI) fluida e intuitiva:
+
+| Botón del Control | Función en la Interfaz de TV |
+| :--- | :--- |
+| **Cruceta (D-Pad)** `▲` `▼` `◄` `►` | Navega entre los botones de modo (*Canciones*, *Videos*, *Modo Libre*), campos de texto, lista de resultados y barra de reproducción. |
+| **Botón OK / Centro** | Selecciona y reproduce la canción/video enfocado. En el reproductor: alterna Pausa/Reproducir. |
+| **Botón Atrás (Back)** | **En Reproductor Pantalla Completa**: Minimiza al **Mini Reproductor** inferior sin detener el audio/video.<br>**En Mini Reproductor**: Con el foco en la `X`, cierra y detiene la reproducción.<br>**En Menús/Listas**: Regresa al foco o pantalla previa. |
+| **Buscador (Search)** | Al seleccionar el campo de búsqueda con `OK`, se despliega el teclado virtual de Android TV. Al pulsar Enter, el foco salta automáticamente al primer resultado de la lista. |
+| **Descargas & Conversor** | Botones dedicados con foco accesible para descargar en MP3 o Video directo. La pestaña **Conversor** permite transcodificar archivos locales usando el motor FFmpeg integrado con navegación D-Pad. |
+| **Controles de Video** | En pantalla completa, presionar `▲` o `OK` despliega la barra de controles (selector de calidad, barra de progreso y modo audio). Los controles se ocultan solos tras 4 segundos de inactividad para visualización limpia. |
+
+---
+
+## 📲 Cómo Instalar en tu Smart TV
+
+mUzVidX se distribuye como APK directa sin depender de tiendas restringidas. Puedes instalarla fácilmente mediante cualquiera de los siguientes métodos:
+
+### Método 1: Instalación Inalámbrica por ADB (Recomendado para desarrolladores y usuarios avanzados)
+1. **Activar Opciones de Desarrollador en la TV**:
+   - Ve a `Ajustes` -> `Preferencias del dispositivo` -> `Información`.
+   - Pulsa 7 veces consecutivas sobre **Compilación del SO de Android TV** hasta ver el mensaje *"¡Ya eres desarrollador!"*.
+2. **Habilitar Depuración**:
+   - Ve a `Opciones para desarrolladores` y activa **Depuración por USB** (o Depuración de red).
+3. **Obtener la Dirección IP de la TV**:
+   - Ve a `Ajustes` -> `Red e Internet` -> Tu red Wi-Fi/Ethernet conectada y anota la dirección IP (ejemplo: `192.168.1.69`).
+4. **Instalar desde tu PC (Terminal)**:
+   ```bash
+   adb connect 192.168.1.69:5555
+   ```
+   *(Acepta el mensaje emergente en la pantalla del televisor: "Permitir siempre desde este equipo")*.
+5. **Enviar la APK**:
+   ```bash
+   adb -s 192.168.1.69:5555 install -r mUzVidX-v1.0.2.apk
+   ```
+
+### Método 2: Instalación por Memoria USB (Pendrive)
+1. Descarga el archivo `mUzVidX-v1.0.2.apk` en tu computadora y cópialo a una memoria USB (formato FAT32 o NTFS).
+2. Conecta la memoria USB al puerto de tu Smart TV o TV Box.
+3. En la TV, abre cualquier explorador de archivos (ej. *File Commander*, *X-plore* o *AnExplorer*, disponibles en Google Play Store de la TV).
+4. Si la TV te lo solicita, activa el permiso para **"Instalar aplicaciones desconocidas"** para ese explorador.
+5. Selecciona el archivo APK en la memoria USB y presiona **Instalar**. ¡Listo! La app aparecerá en tu fila de aplicaciones de la pantalla de inicio.
 
 ---
 
