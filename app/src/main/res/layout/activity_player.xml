@@ -37,6 +37,7 @@
                     app:surface_type="texture_view"
                     app:resize_mode="fit" />
 
+
                 <!-- Carátula de Audio HD (visible en modo Audio cuando visualizador está inactivo) -->
                 <ImageView
                     android:id="@+id/ivThumb"

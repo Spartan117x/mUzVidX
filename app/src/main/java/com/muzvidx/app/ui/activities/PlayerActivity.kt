@@ -292,7 +292,7 @@ class PlayerActivity : AppCompatActivity() {
         if (isVideo) {
             // MODO VIDEO
             binding.btnQuality.visibility = View.VISIBLE
-            binding.btnQuality.text = PlaybackManager.currentVideoResolution
+            binding.btnQuality.text = PlaybackManager.userSelectedResolution
             binding.btnModeVideo.backgroundTintList = ColorStateList.valueOf(accentColor)
             binding.btnModeVideo.setTextColor(darkBg)
             binding.btnModeAudio.backgroundTintList = ColorStateList.valueOf(trans)

@@ -41,9 +41,17 @@ object PlaybackManager {
         "com.google.android.youtube/21.03.36(Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip"
     private const val USER_AGENT_IOS =
         "com.google.ios.youtube/20.11.6 (iPhone10,4; U; CPU iOS 16_7_7 like Mac OS X)"
+    private const val USER_AGENT_VISIONOS =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
 
     fun getHttpDataSourceFactory(url: String): DefaultHttpDataSource.Factory {
-        val ua = if (url.contains("c=IOS") || url.contains("c%3DIOS") || url.contains("hls") || url.contains("manifest")) USER_AGENT_IOS else USER_AGENT_ANDROID
+        val ua = if (url.contains("manifest") || url.contains("hls")) {
+            USER_AGENT_VISIONOS
+        } else if (url.contains("c=IOS") || url.contains("c%3DIOS")) {
+            USER_AGENT_IOS
+        } else {
+            USER_AGENT_ANDROID
+        }
         return DefaultHttpDataSource.Factory()
             .setUserAgent(ua)
             .setConnectTimeoutMs(15000)
@@ -63,6 +71,8 @@ object PlaybackManager {
     private var loadJob: Job? = null
     val streamCache = LruCache<String, String>(60)
 
+    var userSelectedResolution: String = "1080p"
+
     val isPlaying: Boolean get() = player?.isPlaying == true
     val isVideo: Boolean get() = isVideoMode
 
@@ -70,15 +80,39 @@ object PlaybackManager {
     var onLoadingStateListener: ((Boolean) -> Unit)? = null
     var onResolutionChangedListener: ((String) -> Unit)? = null
 
-    var currentVideoResolution: String = "Auto"
+    var currentVideoResolution: String = "1080p"
     var currentVideoStreamsBundle: VideoStreamsBundle? = null
     var desiredVideoHeight: Int? = null
     val visualizerAudioProcessor = RealtimeVisualizerAudioProcessor()
+
+    fun saveSelectedResolution(context: Context, res: String) {
+        userSelectedResolution = res
+        currentVideoResolution = res
+        try {
+            context.getSharedPreferences("muzvidx_prefs", Context.MODE_PRIVATE)
+                .edit().putString("user_selected_resolution", res).apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error saving resolution preference", e)
+        }
+        onResolutionChangedListener?.invoke(res)
+    }
+
+    fun initResolution(context: Context) {
+        try {
+            val prefs = context.getSharedPreferences("muzvidx_prefs", Context.MODE_PRIVATE)
+            val saved = prefs.getString("user_selected_resolution", "1080p") ?: "1080p"
+            userSelectedResolution = saved
+            currentVideoResolution = saved
+        } catch (e: Exception) {
+            Log.w(TAG, "Error loading resolution preference", e)
+        }
+    }
 
     fun init(context: Context) {
         if (player != null) return
         val app = context.applicationContext
         appContext = app
+        initResolution(app)
 
         // 1. Fábrica HTTP para streams remotos
         val httpSourceFactory = DefaultHttpDataSource.Factory()
@@ -156,16 +190,30 @@ object PlaybackManager {
                         if (!isVideoMode) return
                         val targetHeight = desiredVideoHeight ?: return
                         val targetVideoGroup = tracks.groups.find { group ->
-                            group.type == C.TRACK_TYPE_VIDEO &&
-                                    (0 until group.length).any { group.getTrackFormat(it).height == targetHeight }
+                            group.type == C.TRACK_TYPE_VIDEO && group.length > 0
+                        } ?: return
+
+                        var bestIndex = -1
+                        var bestDiff = Int.MAX_VALUE
+                        for (i in 0 until targetVideoGroup.length) {
+                            val f = targetVideoGroup.getTrackFormat(i)
+                            val h = f.height
+                            if (h <= 0) continue
+                            if (h == targetHeight) {
+                                bestIndex = i
+                                break
+                            }
+                            val diff = Math.abs(h - targetHeight)
+                            if (diff < bestDiff) {
+                                bestDiff = diff
+                                bestIndex = i
+                            }
                         }
-                        if (targetVideoGroup != null && !targetVideoGroup.isSelected) {
-                            val trackIndex = (0 until targetVideoGroup.length).firstOrNull {
-                                targetVideoGroup.getTrackFormat(it).height == targetHeight
-                            } ?: 0
-                            Log.i(TAG, "Forzando TrackSelectionOverride para resolución ${targetHeight}p (track $trackIndex)")
+
+                        if (bestIndex != -1 && !targetVideoGroup.isTrackSelected(bestIndex)) {
+                            Log.i(TAG, "Forzando TrackSelectionOverride para resolución ${targetHeight}p (track $bestIndex, ${targetVideoGroup.getTrackFormat(bestIndex).height}p)")
                             player?.trackSelectionParameters = player?.trackSelectionParameters?.buildUpon()
-                                ?.setOverrideForType(TrackSelectionOverride(targetVideoGroup.mediaTrackGroup, trackIndex))
+                                ?.setOverrideForType(TrackSelectionOverride(targetVideoGroup.mediaTrackGroup, bestIndex))
                                 ?.build() ?: return
                         }
                     }
@@ -321,6 +369,7 @@ object PlaybackManager {
     fun getCurrentRepeatMode(): Int = player?.repeatMode ?: Player.REPEAT_MODE_OFF
 
     fun getCurrentPositionMs(): Long = player?.currentPosition ?: 0L
+
     fun getDurationMs(): Long = player?.duration ?: 0L
     fun seekTo(ms: Long) {
         player?.seekTo(ms)
@@ -376,9 +425,61 @@ object PlaybackManager {
     }
 
     fun switchVideoResolution(quality: String) {
+        userSelectedResolution = quality
         currentVideoResolution = quality
+        appContext?.let { saveSelectedResolution(it, quality) }
         isVideoMode = true
         onResolutionChangedListener?.invoke(quality)
+
+        val bundle = currentVideoStreamsBundle
+        val p = player
+        if (bundle != null && !bundle.hlsManifestUrl.isNullOrEmpty() && p != null) {
+            val targetHeight = when (quality) {
+                "1080p" -> 1080
+                "720p" -> 720
+                "480p" -> 480
+                "360p" -> 360
+                "240p" -> 240
+                else -> null
+            }
+            desiredVideoHeight = targetHeight
+            val paramBuilder = p.trackSelectionParameters.buildUpon()
+            if (targetHeight != null) {
+                val maxW = (targetHeight * 16) / 9 + 100
+                val minW = (targetHeight * 16) / 9 - 100
+                paramBuilder.setMaxVideoSize(maxW, targetHeight)
+                    .setMinVideoSize(minW.coerceAtLeast(1), (targetHeight - 20).coerceAtLeast(1))
+
+                val videoGroup = p.currentTracks.groups.find { it.type == C.TRACK_TYPE_VIDEO && it.length > 0 }
+                if (videoGroup != null) {
+                    var bestIndex = -1
+                    var bestDiff = Int.MAX_VALUE
+                    for (i in 0 until videoGroup.length) {
+                        val f = videoGroup.getTrackFormat(i)
+                        val h = f.height
+                        if (h <= 0) continue
+                        if (h == targetHeight) {
+                            bestIndex = i
+                            break
+                        }
+                        val diff = Math.abs(h - targetHeight)
+                        if (diff < bestDiff) {
+                            bestDiff = diff
+                            bestIndex = i
+                        }
+                    }
+                    if (bestIndex != -1) {
+                        paramBuilder.setOverrideForType(TrackSelectionOverride(videoGroup.mediaTrackGroup, bestIndex))
+                    }
+                }
+            } else {
+                paramBuilder.clearVideoSizeConstraints()
+                paramBuilder.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            }
+            p.trackSelectionParameters = paramBuilder.build()
+            Log.i(TAG, "Resolución HLS cambiada dinámicamente a $quality (targetHeight=$targetHeight)")
+            return
+        }
 
         val track = getCurrentTrack() ?: return
         val rawUrl = track.videoUrl.ifEmpty { track.audioUrl }
@@ -388,7 +489,6 @@ object PlaybackManager {
             return
         }
 
-        val bundle = currentVideoStreamsBundle
         if (bundle != null) {
             applyVideoStreamsToPlayer(bundle, quality, currentPos)
         } else {
@@ -466,9 +566,8 @@ object PlaybackManager {
             // 1. Identificar stream progresivo garantizado (itag 18 / 360p)
             val progFormat = bundle.formats.find { it.isProgressive }
 
-            // 2. Si no hay HLS y la calidad es Auto o 360p: usar directamente el stream progresivo oficial
-            // que garantiza reproducción 100% continua de inicio a fin sin cortes ni bloqueos 403
-            if ((quality == "Auto" || quality == "360p") && progFormat != null) {
+            // 2. Si no hay HLS y la calidad elegida es específicamente 360p: usar el stream progresivo oficial
+            if (quality == "360p" && progFormat != null) {
                 desiredVideoHeight = 360
                 val httpSourceFactory = getHttpDataSourceFactory(progFormat.videoUrl)
                 val mediaSource = ProgressiveMediaSource.Factory(httpSourceFactory)
@@ -594,6 +693,8 @@ object PlaybackManager {
 
         // 1. Detener reproducción anterior de inmediato para evitar que se quede pegada
         player?.stop()
+        currentVideoResolution = userSelectedResolution
+
         isLoadingTrack = true
         onLoadingStateListener?.invoke(true)
 
