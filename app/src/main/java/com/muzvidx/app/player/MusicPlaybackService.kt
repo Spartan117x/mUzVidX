@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.muzvidx.app.R
+import com.muzvidx.app.ui.activities.LocalPlayerActivity
 import com.muzvidx.app.ui.activities.PlayerActivity
 
 class MusicPlaybackService : Service() {
@@ -71,7 +72,11 @@ class MusicPlaybackService : Service() {
     }
 
     private fun buildNotification(title: String, artist: String, isPlaying: Boolean): Notification {
-        val openIntent = Intent(this, PlayerActivity::class.java).apply {
+        val current = PlaybackManager.getCurrentTrack()
+        val url = current?.audioUrl?.ifEmpty { current.videoUrl } ?: ""
+        val isLocal = url.startsWith("/") || url.startsWith("file://")
+        val targetActivity = if (isLocal) LocalPlayerActivity::class.java else PlayerActivity::class.java
+        val openIntent = Intent(this, targetActivity).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val openPI = PendingIntent.getActivity(

@@ -65,6 +65,14 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.MUzVidX.Fullscreen" />
 
+        <activity
+            android:name=".ui.activities.LocalPlayerActivity"
+            android:exported="false"
+            android:banner="@drawable/tv_banner"
+            android:supportsPictureInPicture="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
+            android:theme="@style/Theme.MUzVidX.Fullscreen" />
+
         <service
             android:name=".player.MusicPlaybackService"
             android:foregroundServiceType="mediaPlayback"

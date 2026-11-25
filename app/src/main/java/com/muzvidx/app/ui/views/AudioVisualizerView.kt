@@ -41,15 +41,34 @@ class AudioVisualizerView @JvmOverloads constructor(
     private val peaks = FloatArray(NUM_BARS) { 0.06f }
     private val peakHoldFrames = IntArray(NUM_BARS) { 0 }
 
-    // Colores Neon de Estudio
-    private val colorBassTop = Color.parseColor("#FF1744")     // Rojo Neón vibrante
-    private val colorBassBottom = Color.parseColor("#880E4F")  // Magenta profundo
+    // Colores Neon de Estudio (Online por defecto, Local brillante al activar setLocalTheme)
+    private var colorBassTop = Color.parseColor("#FF1744")     // Rojo Neón vibrante
+    private var colorBassBottom = Color.parseColor("#880E4F")  // Magenta profundo
 
-    private val colorMidTop = Color.parseColor("#00E5FF")      // Cyan eléctrico
-    private val colorMidBottom = Color.parseColor("#0D47A1")   // Azul profundo
+    private var colorMidTop = Color.parseColor("#00E5FF")      // Cyan eléctrico
+    private var colorMidBottom = Color.parseColor("#0D47A1")   // Azul profundo
 
-    private val colorTrebleTop = Color.parseColor("#E040FB")   // Violeta Neón
-    private val colorTrebleBottom = Color.parseColor("#4A148C") // Púrpura profundo
+    private var colorTrebleTop = Color.parseColor("#E040FB")   // Violeta Neón
+    private var colorTrebleBottom = Color.parseColor("#4A148C") // Púrpura profundo
+
+    fun setLocalTheme(isLocal: Boolean) {
+        if (isLocal) {
+            colorBassTop = Color.parseColor("#FFFFD600")       // Oro eléctrico brillante
+            colorBassBottom = Color.parseColor("#FFFF6D00")    // Naranja ámbar luminoso
+            colorMidTop = Color.parseColor("#FF00FFAA")        // Menta neón brillante
+            colorMidBottom = Color.parseColor("#FF00897B")     // Esmeralda intenso
+            colorTrebleTop = Color.parseColor("#FF18FFFF")     // Cian hielo brillante
+            colorTrebleBottom = Color.parseColor("#FF0277BD")  // Azul brillante
+        } else {
+            colorBassTop = Color.parseColor("#FF1744")
+            colorBassBottom = Color.parseColor("#880E4F")
+            colorMidTop = Color.parseColor("#00E5FF")
+            colorMidBottom = Color.parseColor("#0D47A1")
+            colorTrebleTop = Color.parseColor("#E040FB")
+            colorTrebleBottom = Color.parseColor("#4A148C")
+        }
+        invalidate()
+    }
 
     // Pinceles
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)

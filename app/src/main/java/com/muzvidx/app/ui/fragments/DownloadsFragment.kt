@@ -36,6 +36,8 @@ class DownloadsFragment : Fragment() {
     private var videoAdapter: DownloadsAdapter? = null
     private var pollJob: Job? = null
     private var currentTab = 0
+    private var currentAudioList: List<DownloadEntity> = emptyList()
+    private var currentVideoList: List<DownloadEntity> = emptyList()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -110,6 +112,8 @@ class DownloadsFragment : Fragment() {
             if (_binding == null) return@launch
             val audio = all.filter { it.type == "AUDIO" }
             val video = all.filter { it.type == "VIDEO" }
+            currentAudioList = audio
+            currentVideoList = video
             audioAdapter?.updateList(audio)
             videoAdapter?.updateList(video)
 
@@ -174,26 +178,50 @@ class DownloadsFragment : Fragment() {
             Toast.makeText(ctx, "El archivo descargado no existe o está incompleto", Toast.LENGTH_SHORT).show()
             return
         }
-        val type = if (entity.type == "VIDEO") ResultType.VIDEO else ResultType.TRACK
 
-        MainActivity.openPlayer(
-            ctx,
+        val sourceList = if (entity.type == "VIDEO") currentVideoList else currentAudioList
+        val readyQueue = sourceList.mapNotNull { item ->
+            val path = if (item.type == "VIDEO") item.originalPath else (item.mp3Path ?: item.originalPath)
+            val file = File(path)
+            if (file.exists() && file.length() >= 1000) {
+                SearchResult(
+                    id = item.id,
+                    title = item.title,
+                    artist = item.artist,
+                    source = Source.YOUTUBE,
+                    type = if (item.type == "VIDEO") ResultType.VIDEO else ResultType.TRACK,
+                    durationSec = 0,
+                    thumbUrl = "",
+                    audioUrl = path,
+                    videoUrl = path,
+                    isOfficial = false
+                )
+            } else {
+                null
+            }
+        }
+
+        val startIndex = readyQueue.indexOfFirst { it.id == entity.id }.coerceAtLeast(0)
+        val queueToPlay = if (readyQueue.isNotEmpty()) {
+            readyQueue
+        } else {
             listOf(
                 SearchResult(
                     id = entity.id,
                     title = entity.title,
                     artist = entity.artist,
                     source = Source.YOUTUBE,
-                    type = type,
+                    type = if (entity.type == "VIDEO") ResultType.VIDEO else ResultType.TRACK,
                     durationSec = 0,
                     thumbUrl = "",
                     audioUrl = fileUrl,
                     videoUrl = fileUrl,
                     isOfficial = false
                 )
-            ),
-            0
-        )
+            )
+        }
+
+        MainActivity.openPlayer(ctx, queueToPlay, startIndex)
     }
 
     override fun onResume() {

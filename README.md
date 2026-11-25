@@ -20,6 +20,16 @@
 
 ---
 
+## 🎧 Novedades en v1.0.3: Reproductor Local Dedicado (M4A / MP3 / MP4)
+
+mUzVidX v1.0.3 separa la experiencia de reproducción en línea de la reproducción local, incorporando un **Reproductor Local Exclusivo** para la pestaña de **Descargas** (`LocalPlayerActivity`):
+- **Identidad Visual Propia y Brillante**: Interfaz luminosa con paleta menta-esmeralda y dorado eléctrico (`#00FFAA` / `#FFD600`) claramente diferenciada del reproductor de búsqueda en línea.
+- **Soporte Nativo Local (.M4A, .MP3 y .MP4)**: Reproduce tus archivos descargados de audio y video con lectura automática de carátulas embebidas (ID3) y miniatura de video.
+- **Insignia de Formato Local**: Muestra en tiempo real el formato del archivo reproducido (`LOCAL • MP3`, `LOCAL • M4A`, `LOCAL • MP4`).
+- **Cola de Reproducción Local Continua**: Navega con **Anterior / Siguiente** y reproducción continua a través de toda tu biblioteca descargada con el mismo manejo completo (Ecualizador de 5 bandas, Visualizador FFT brillante, PiP, Repetición, Favoritos, Playlists y control remoto Android TV).
+
+---
+
 ## 📺 Novedades en v1.0.2: Experiencia Nativa Android TV & Streaming 1080p
 
 mUzVidX v1.0.2 introduce compatibilidad total para **Android TV**, **Google TV** y **TV Boxes** mediante una **única APK universal**. Gracias a la integración del lanzador Leanback, el mismo instalador se adapta a pantallas táctiles (smartphones/tablets) y televisores inteligentes.

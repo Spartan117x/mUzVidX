@@ -33,7 +33,11 @@ class MainActivity : AppCompatActivity() {
             if (queue.isNotEmpty()) {
                 PlaybackManager.setQueue(queue, startIndex)
             }
-            context.startActivity(Intent(context, PlayerActivity::class.java))
+            val current = PlaybackManager.getCurrentTrack()
+            val url = current?.audioUrl?.ifEmpty { current.videoUrl } ?: ""
+            val isLocal = url.startsWith("/") || url.startsWith("file://")
+            val targetActivity = if (isLocal) LocalPlayerActivity::class.java else PlayerActivity::class.java
+            context.startActivity(Intent(context, targetActivity))
         }
     }
 

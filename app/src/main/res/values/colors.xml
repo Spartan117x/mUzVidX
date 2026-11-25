@@ -27,4 +27,12 @@
     <color name="tag_official">#FF00F2FE</color>
     <color name="tag_community">#FFFF007A</color>
     <color name="tag_soundcloud">#FFF97316</color>
+
+    <!-- Paleta Brillante para Reproductor Local (M4A / MP3 / MP4) -->
+    <color name="local_bg">#FF132444</color>
+    <color name="local_panel">#E61B3159</color>
+    <color name="local_accent">#FF00FFAA</color>
+    <color name="local_accent_gold">#FFFFD600</color>
+    <color name="local_accent_soft">#3300FFAA</color>
+    <color name="local_gold_soft">#33FFD600</color>
 </resources>
