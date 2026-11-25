@@ -220,7 +220,8 @@ object DownloadQueueManager {
                     artist = entity.artist
                 )
                 if (success) {
-                    db.downloadDao().update(entity.copy(status = "READY", mp3Path = output, progress = 100))
+                    val latest = db.downloadDao().getById(entity.id) ?: entity
+                    db.downloadDao().update(latest.copy(status = "READY", mp3Path = output, progress = 100))
                     withContext(Dispatchers.Main) {
                         Toast.makeText(appCtx, "MP3 generado con éxito ✓", Toast.LENGTH_SHORT).show()
                         onDone?.invoke()
@@ -258,7 +259,9 @@ object DownloadQueueManager {
                 for (entity in all) {
                     if (activeTasks.contains(entity.id)) continue
 
-                    if (entity.status == "CONVERTING" || entity.status == "DOWNLOADING") {
+                    if (entity.status == "CONVERTING" || entity.status == "DOWNLOADING" ||
+                        (entity.type == "AUDIO" && entity.status == "READY" && entity.mp3Path.isNullOrEmpty())
+                    ) {
                         val origFile = if (entity.originalPath.isNotEmpty()) File(entity.originalPath) else null
                         val mp3File = if (!entity.mp3Path.isNullOrEmpty()) {
                             File(entity.mp3Path)
@@ -275,7 +278,7 @@ object DownloadQueueManager {
                                     progress = 100
                                 )
                             )
-                        } else if (origFile != null && origFile.exists() && origFile.length() > 50000) {
+                        } else if (entity.status != "READY" && origFile != null && origFile.exists() && origFile.length() > 50000) {
                             Log.i(TAG, "Auto-recuperado: Archivo original listo: ${entity.title}")
                             db.downloadDao().update(
                                 entity.copy(
@@ -283,7 +286,7 @@ object DownloadQueueManager {
                                     progress = 100
                                 )
                             )
-                        } else {
+                        } else if (entity.status != "READY") {
                             Log.w(TAG, "Marcando descarga incompleta no recuperable: ${entity.title}")
                             db.downloadDao().update(entity.copy(status = "ERROR", progress = 0))
                         }

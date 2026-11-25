@@ -148,7 +148,7 @@ object PlaybackManager {
                     .setUsage(C.USAGE_MEDIA)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .build(),
-                true
+                false
             )
             .setHandleAudioBecomingNoisy(true)
             .build().apply {
@@ -702,14 +702,16 @@ object PlaybackManager {
         loadJob = scope.launch {
             if (rawUrl.startsWith("/") || rawUrl.startsWith("file://")) {
                 // Archivo local descargado
-                val f = File(rawUrl)
+                val cleanPath = rawUrl.removePrefix("file://")
+                val f = File(cleanPath)
                 if (!f.exists() || f.length() < 1000) {
-                    Log.e(TAG, "El archivo local no existe o está corrupto: $rawUrl")
+                    Log.e(TAG, "El archivo local no existe o está corrupto: $cleanPath")
                     isLoadingTrack = false
                     onLoadingStateListener?.invoke(false)
                     return@launch
                 }
                 player?.setMediaItem(MediaItem.fromUri(Uri.fromFile(f)))
+                player?.playWhenReady = true
                 player?.prepare()
                 player?.play()
                 isLoadingTrack = false
@@ -755,6 +757,7 @@ object PlaybackManager {
                         val source = ProgressiveMediaSource.Factory(httpFactory)
                             .createMediaSource(MediaItem.fromUri(Uri.parse(streamUrl)))
                         player?.setMediaSource(source)
+                        player?.playWhenReady = true
                         player?.prepare()
                         player?.play()
                     } catch (e: Exception) {
@@ -769,6 +772,7 @@ object PlaybackManager {
             } else {
                 try {
                     player?.setMediaItem(MediaItem.fromUri(Uri.parse(rawUrl)))
+                    player?.playWhenReady = true
                     player?.prepare()
                     player?.play()
                 } catch (e: Exception) {

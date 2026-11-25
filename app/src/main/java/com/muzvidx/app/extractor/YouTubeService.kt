@@ -709,7 +709,32 @@ class YouTubeService {
             }
             cleanId = cleanId.removePrefix("yt_").removePrefix("yt_vid_")
 
-            // 1. Cliente ANDROID para stream progresivo (itag 18: video MP4 360p + audio AAC estéreo)
+            if (isAudioOnly) {
+                // Para solo audio: priorizar cliente IOS (stream puro audio/mp4 M4A/AAC rápido y sin video)
+                val iosPayload = """
+                    {
+                        "videoId": "$cleanId",
+                        "context": {
+                            "client": {
+                                "clientName": "IOS",
+                                "clientVersion": "20.11.6",
+                                "deviceModel": "iPhone10,4",
+                                "hl": "es",
+                                "gl": "US"
+                            }
+                        }
+                    }
+                """.trimIndent()
+
+                val iosJson = post(PLAYER_URL, iosPayload, USER_AGENT_IOS)
+                val audioUrl = extractAudioFromPlayerJson(iosJson)
+                if (!audioUrl.isNullOrEmpty()) {
+                    Log.i(TAG, "Stream audio resuelto (IOS): $cleanId")
+                    return@withContext audioUrl
+                }
+            }
+
+            // Cliente ANDROID para stream progresivo (itag 18: video MP4 360p + audio AAC estéreo)
             // Este stream garantiza HTTP 200 directo sin bloqueos 403, sin ciphers n-sig
             val androidPayload = """
                 {
@@ -733,27 +758,29 @@ class YouTubeService {
                 return@withContext progUrl
             }
 
-            // Fallback: Cliente IOS para extraer audio si no hay progresivo
-            val iosPayload = """
-                {
-                    "videoId": "$cleanId",
-                    "context": {
-                        "client": {
-                            "clientName": "IOS",
-                            "clientVersion": "20.11.6",
-                            "deviceModel": "iPhone10,4",
-                            "hl": "es",
-                            "gl": "US"
+            if (!isAudioOnly) {
+                // Fallback: Cliente IOS si no hubo progresivo
+                val iosPayload = """
+                    {
+                        "videoId": "$cleanId",
+                        "context": {
+                            "client": {
+                                "clientName": "IOS",
+                                "clientVersion": "20.11.6",
+                                "deviceModel": "iPhone10,4",
+                                "hl": "es",
+                                "gl": "US"
+                            }
                         }
                     }
-                }
-            """.trimIndent()
+                """.trimIndent()
 
-            val iosJson = post(PLAYER_URL, iosPayload, USER_AGENT_IOS)
-            val streamUrl = extractAudioFromPlayerJson(iosJson)
-            if (!streamUrl.isNullOrEmpty()) {
-                Log.i(TAG, "Stream audio resuelto (IOS): $cleanId")
-                return@withContext streamUrl
+                val iosJson = post(PLAYER_URL, iosPayload, USER_AGENT_IOS)
+                val streamUrl = extractAudioFromPlayerJson(iosJson)
+                if (!streamUrl.isNullOrEmpty()) {
+                    Log.i(TAG, "Stream audio fallback resuelto (IOS): $cleanId")
+                    return@withContext streamUrl
+                }
             }
 
             null
@@ -771,6 +798,7 @@ class YouTubeService {
                 // Este manifiesto HLS es la solución definitiva: proporciona streams oficiales de GoogleVideo
                 // con video HD 1080p y audio AAC estéreo muxed, garantizando reproducción continua 100% fluida
                 // sin el límite de 60 segundos y sin bloqueos HTTP 403.
+                var visionosHlsUrl: String? = null
                 try {
                     val visitorData = getVisitorData()
                     val visionosPayload = """
@@ -816,20 +844,7 @@ class YouTubeService {
 
                     if (!hlsManifestUrl.isNullOrEmpty()) {
                         Log.i(TAG, "Manifiesto HLS obtenido con éxito (VISIONOS) para $cleanId: ${hlsManifestUrl.take(70)}...")
-                        val formats = listOf(
-                            VideoFormatOption(itag = 270, qualityLabel = "1080p", videoUrl = hlsManifestUrl, audioUrl = null, sizeBytes = 0L, isProgressive = false),
-                            VideoFormatOption(itag = 232, qualityLabel = "720p", videoUrl = hlsManifestUrl, audioUrl = null, sizeBytes = 0L, isProgressive = false),
-                            VideoFormatOption(itag = 231, qualityLabel = "480p", videoUrl = hlsManifestUrl, audioUrl = null, sizeBytes = 0L, isProgressive = false),
-                            VideoFormatOption(itag = 230, qualityLabel = "360p", videoUrl = hlsManifestUrl, audioUrl = null, sizeBytes = 0L, isProgressive = false),
-                            VideoFormatOption(itag = 229, qualityLabel = "240p", videoUrl = hlsManifestUrl, audioUrl = null, sizeBytes = 0L, isProgressive = false)
-                        )
-                        return@withContext VideoStreamsBundle(
-                            videoId = cleanId,
-                            hlsManifestUrl = hlsManifestUrl,
-                            audioUrl = null,
-                            formats = formats,
-                            defaultStreamUrl = hlsManifestUrl
-                        )
+                        visionosHlsUrl = hlsManifestUrl
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "VISIONOS HLS query failed for $cleanId: ${e.message}")
@@ -965,14 +980,17 @@ class YouTubeService {
                     ?: sortedFormats.firstOrNull()?.videoUrl
                     ?: ""
 
-                Log.i(TAG, "Streams resueltos para $cleanId: ${sortedFormats.map { it.qualityLabel }} (HLS=${!hlsUrl.isNullOrEmpty()})")
+                val finalHlsUrl = visionosHlsUrl ?: hlsUrl
+                val finalDefaultUrl = defaultUrl.ifEmpty { finalHlsUrl ?: "" }
+
+                Log.i(TAG, "Streams resueltos para $cleanId: ${sortedFormats.map { it.qualityLabel }} (HLS=${!finalHlsUrl.isNullOrEmpty()})")
 
                 VideoStreamsBundle(
                     videoId = cleanId,
-                    hlsManifestUrl = hlsUrl,
+                    hlsManifestUrl = finalHlsUrl,
                     audioUrl = bestAudioUrl,
                     formats = sortedFormats,
-                    defaultStreamUrl = defaultUrl
+                    defaultStreamUrl = finalDefaultUrl
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Error resolving video streams for $cleanId: ${e.message}", e)

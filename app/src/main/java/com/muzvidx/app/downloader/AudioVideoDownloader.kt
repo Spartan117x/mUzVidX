@@ -164,7 +164,11 @@ object AudioVideoDownloader {
             return@withContext download(context, rawUrlOrId, title, DownloadType.VIDEO, cleanArtist, onProgress)
         }
 
-        val progressiveFormat = bundle.formats.find { it.isProgressive }
+        val downloadableFormats = bundle.formats.filter {
+            !it.videoUrl.contains(".m3u8", ignoreCase = true) &&
+                !it.videoUrl.contains("manifest", ignoreCase = true)
+        }
+        val progressiveFormat = downloadableFormats.find { it.isProgressive }
         var status = DownloadStatus.DOWNLOADING
 
         // Si el usuario eligió 360p y hay stream progresivo disponible, descargarlo directamente
@@ -172,11 +176,11 @@ object AudioVideoDownloader {
             Log.i(TAG, "Descargando stream progresivo directo 360p")
             val ok = downloadStreamToFile(progressiveFormat.videoUrl, finalFile, 0, 100, onProgress)
             status = if (ok && finalFile.exists() && finalFile.length() > 50000) DownloadStatus.READY else DownloadStatus.ERROR
-        } else {
+        } else if (downloadableFormats.isNotEmpty()) {
             // Buscar el formato que mejor coincida con la resolución deseada
-            val selectedFormat = bundle.formats.find { it.qualityLabel.equals(targetResolution, ignoreCase = true) }
-                ?: bundle.formats.find { it.qualityLabel.contains(targetResolution.replace("p", "")) }
-                ?: bundle.formats.first()
+            val selectedFormat = downloadableFormats.find { it.qualityLabel.equals(targetResolution, ignoreCase = true) }
+                ?: downloadableFormats.find { it.qualityLabel.contains(targetResolution.replace("p", "")) }
+                ?: downloadableFormats.first()
 
             Log.i(TAG, "Intentando descarga en alta definición: itag=${selectedFormat.itag}, res=${selectedFormat.qualityLabel}, isProgressive=${selectedFormat.isProgressive}")
 

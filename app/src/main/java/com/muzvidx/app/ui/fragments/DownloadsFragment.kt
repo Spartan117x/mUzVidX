@@ -51,6 +51,12 @@ class DownloadsFragment : Fragment() {
 
         val ctx = requireContext()
         val prefs = ctx.getSharedPreferences("muzvidx_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("v103_autoconvert_init", false)) {
+            prefs.edit()
+                .putBoolean("auto_convert_mp3", true)
+                .putBoolean("v103_autoconvert_init", true)
+                .apply()
+        }
         val db = DownloadDatabase.getInstance(ctx)
 
         binding.switchAutoConvert.isChecked = prefs.getBoolean("auto_convert_mp3", true)

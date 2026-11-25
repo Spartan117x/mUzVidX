@@ -272,6 +272,12 @@ class SearchFragment : Fragment() {
     private fun downloadAudio(result: SearchResult) {
         val appCtx = context?.applicationContext ?: return
         val prefs = appCtx.getSharedPreferences("muzvidx_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("v103_autoconvert_init", false)) {
+            prefs.edit()
+                .putBoolean("auto_convert_mp3", true)
+                .putBoolean("v103_autoconvert_init", true)
+                .apply()
+        }
         val autoConvert = prefs.getBoolean("auto_convert_mp3", true)
 
         Toast.makeText(appCtx, "Descargando audio: ${result.title}", Toast.LENGTH_SHORT).show()
